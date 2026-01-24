@@ -1,0 +1,74 @@
+name: Test and Upload Release Artifact
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 0 1 * *"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  clippy-and-fmt:
+    name: Formatting and Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy, rustfmt
+
+      - name: Formatting
+        run: cargo fmt -- --check
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+
+  test-matrix:
+    name: ${{ matrix.platform.os-name }}
+    runs-on: ${{ matrix.platform.runs-on }}
+    strategy:
+      fail-fast: true
+      matrix:
+        platform:
+          - os-name: Linux, x86_64
+            runs-on: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+
+          - os-name: Linux, ARM64
+            runs-on: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check
+        uses: houseabsolute/actions-rust-cross@v1
+        with:
+          command: "check"
+          target: ${{ matrix.platform.target }}
+          toolchain: stable
+
+      - name: Run tests
+        uses: houseabsolute/actions-rust-cross@v1
+        with:
+          command: "test"
+          target: ${{ matrix.platform.target }}
+          toolchain: stable
+          args: "--verbose"
+
+      - name: Build (release)
+        uses: houseabsolute/actions-rust-cross@v1
+        with:
+          command: "build"
+          target: ${{ matrix.platform.target }}
+          toolchain: stable
+          args: "--release"
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: Release binary (${{ matrix.platform.os-name }})
+          path: target/${{ matrix.platform.target }}/release/anup
+          retention-days: 90

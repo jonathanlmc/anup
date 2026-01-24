@@ -1,9 +1,0 @@
-query {
-    Viewer {
-        id,
-        name,
-        mediaListOptions {
-            scoreFormat
-        }
-    }
-}
