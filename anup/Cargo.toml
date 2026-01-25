@@ -4,3 +4,5 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anime_detect = { version = "0.1.0", path = "../anime_detect" }
+tracing-subscriber = "0.3.22"

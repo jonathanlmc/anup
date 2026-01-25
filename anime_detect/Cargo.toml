@@ -1,0 +1,10 @@
+[package]
+name = "anime_detect"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+
+[dependencies]
+tap = "1.0.1"
+thiserror = "2.0.18"
+tracing = "0.1.44"
