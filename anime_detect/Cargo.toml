@@ -8,3 +8,4 @@ license.workspace = true
 tap = "1.0.1"
 thiserror = "2.0.18"
 tracing = "0.1.44"
+winnow = { version = "0.7.14", features = ["simd"] }

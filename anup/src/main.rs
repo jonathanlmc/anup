@@ -1,7 +1,5 @@
-use tracing_subscriber::util::SubscriberInitExt;
-
 fn main() {
-    tracing_subscriber::registry().init();
+    tracing_subscriber::fmt().init();
 
     let dir = std::env::args().nth(1).expect("no path provided");
 

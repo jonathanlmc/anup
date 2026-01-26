@@ -1,9 +1,11 @@
+mod combinator;
+
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
 };
 
-use tap::TapOptional;
+use tap::TapFallible;
 
 use crate::{Episode, EpisodeSet};
 
@@ -34,16 +36,16 @@ impl Series {
             .ok_or(ParseSeriesError::InvalidPath)
             .map(|name| name.to_string_lossy())
             .map(|name| {
-                trim_name(&name)
-                    .tap_none(|| {
+                combinator::trim_name(&name)
+                    .tap_err(|err| {
                         tracing::warn!(
-                            "no series name could be determined for `{}`, \
-                            defaulting to full directory name",
+                            %err,
+                            "failed to parse series name at `{}`; \
+                            using full directory name",
                             dir.display()
                         );
                     })
-                    .unwrap_or(&name)
-                    .to_string()
+                    .unwrap_or_else(|_| name.into_owned())
             })?;
 
         let mut season_episodes = HashMap::new();
@@ -55,11 +57,6 @@ impl Series {
             season_episodes,
         })
     }
-}
-
-fn trim_name(name: &str) -> Option<&str> {
-    // TODO
-    Some(name)
 }
 
 fn collect_episodes_in_dir(
