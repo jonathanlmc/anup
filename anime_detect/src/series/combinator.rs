@@ -47,3 +47,45 @@ fn whitespace(input: &mut &str) -> Result<()> {
         .map(|()| ())
         .parse_next(input)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod trim_name {
+        use super::*;
+
+        #[track_caller]
+        fn cmp(untrimmed: &str, expected: impl Into<String>) {
+            assert_eq!(trim_name(untrimmed), Ok(expected.into()));
+        }
+
+        #[test]
+        fn no_tags() {
+            cmp("Title", "Title");
+            cmp("Series Title", "Series Title");
+
+            assert!(trim_name("").is_err());
+        }
+
+        #[test]
+        fn one_tag() {
+            cmp("[Tag] Title", "Title");
+            cmp("[Tag] Series Title", "Series Title");
+            cmp("Series Title [Tag]", "Series Title");
+            cmp("(Tag) Series Title", "Series Title");
+            cmp("Series Title (Tag)", "Series Title");
+            cmp("Series Title 720p", "Series Title");
+            cmp("Series Title 1080p", "Series Title");
+        }
+
+        #[test]
+        fn many_tags() {
+            cmp("[Tag1] [Tag2] Series Title", "Series Title");
+            cmp("[Tag1] (Tag2) Series Title", "Series Title");
+            cmp("Series Title [Tag1] [Tag2]", "Series Title");
+            cmp("[Tag1] Series Title 1080p", "Series Title");
+            cmp("[Tag1] Series Title 1080p (Tag 2) (Tag 3)", "Series Title");
+        }
+    }
+}
