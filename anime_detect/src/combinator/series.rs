@@ -1,17 +1,10 @@
+use crate::combinator::{tag, whitespace};
 use winnow::{
     Parser, Result,
-    ascii::{Caseless, digit1},
-    combinator::{alt, delimited, eof, opt, repeat, repeat_till},
-    token::{any, take_until},
+    ascii::digit1,
+    combinator::{alt, eof, repeat, repeat_till},
+    token::any,
 };
-
-const RESOLUTION_TAGS: [Caseless<&str>; 5] = [
-    Caseless("480p"),
-    Caseless("720p"),
-    Caseless("1080p"),
-    Caseless("2160p"),
-    Caseless("4320p"),
-];
 
 pub fn trim_name(mut name: &str) -> Result<String> {
     let many_tags = repeat(0.., tag).map(|()| ()).void();
@@ -24,33 +17,9 @@ pub fn trim_name(mut name: &str) -> Result<String> {
         .map(|(_, name)| name)
 }
 
-fn tag<'a>(input: &mut &'a str) -> Result<&'a str> {
-    (
-        opt(whitespace),
-        alt((brackets, parens, alt(RESOLUTION_TAGS))),
-        opt(whitespace),
-    )
-        .map(|(_, tag, _)| tag)
-        .parse_next(input)
-}
-
 fn season_label(input: &mut &str) -> Result<()> {
     (whitespace, 'S', digit1, alt((whitespace, eof.void())))
         .void()
-        .parse_next(input)
-}
-
-fn parens<'a>(input: &mut &'a str) -> Result<&'a str> {
-    delimited('(', take_until(0.., ')'), ')').parse_next(input)
-}
-
-fn brackets<'a>(input: &mut &'a str) -> Result<&'a str> {
-    delimited('[', take_until(0.., ']'), ']').parse_next(input)
-}
-
-fn whitespace(input: &mut &str) -> Result<()> {
-    repeat(1.., alt((' ', '_', '.')))
-        .map(|()| ())
         .parse_next(input)
 }
 

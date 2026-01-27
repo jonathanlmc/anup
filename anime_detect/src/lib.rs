@@ -1,3 +1,5 @@
+mod combinator;
+
 pub mod episode;
 pub mod series;
 

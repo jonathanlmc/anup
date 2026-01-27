@@ -1,5 +1,3 @@
-mod combinator;
-
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -7,7 +5,7 @@ use std::{
 
 use tap::TapFallible;
 
-use crate::{Episode, EpisodeSet};
+use crate::{Episode, EpisodeSet, combinator};
 
 #[derive(thiserror::Error, Debug)]
 pub enum ParseSeriesError {
@@ -36,7 +34,7 @@ impl Series {
             .ok_or(ParseSeriesError::InvalidPath)
             .map(|name| name.to_string_lossy())
             .map(|name| {
-                combinator::trim_name(&name)
+                combinator::series::trim_name(&name)
                     .tap_err(|err| {
                         tracing::warn!(
                             %err,
