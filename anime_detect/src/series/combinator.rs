@@ -1,6 +1,6 @@
 use winnow::{
     Parser, Result,
-    ascii::Caseless,
+    ascii::{Caseless, digit1},
     combinator::{alt, delimited, eof, opt, repeat, repeat_till},
     token::{any, take_until},
 };
@@ -16,12 +16,12 @@ const RESOLUTION_TAGS: [Caseless<&str>; 5] = [
 pub fn trim_name(mut name: &str) -> Result<String> {
     let many_tags = repeat(0.., tag).map(|()| ()).void();
 
-    let title_until_tag_or_end =
-        repeat_till(1.., any, alt((tag, eof))).map(|(chars, _)| -> Vec<char> { chars });
+    let title_until_tag_or_end = repeat_till(1.., any, alt((tag, season_label.take(), eof)))
+        .map(|(str, _)| -> String { str });
 
     (many_tags, title_until_tag_or_end)
         .parse_next(&mut name)
-        .map(|(_, name)| name.into_iter().collect())
+        .map(|(_, name)| name)
 }
 
 fn tag<'a>(input: &mut &'a str) -> Result<&'a str> {
@@ -31,6 +31,12 @@ fn tag<'a>(input: &mut &'a str) -> Result<&'a str> {
         opt(whitespace),
     )
         .map(|(_, tag, _)| tag)
+        .parse_next(input)
+}
+
+fn season_label(input: &mut &str) -> Result<()> {
+    (whitespace, 'S', digit1, alt((whitespace, eof.void())))
+        .void()
         .parse_next(input)
 }
 
@@ -56,7 +62,7 @@ mod tests {
         use super::*;
 
         #[track_caller]
-        fn cmp(untrimmed: &str, expected: impl Into<String>) {
+        fn cmp(untrimmed: &str, expected: &str) {
             assert_eq!(trim_name(untrimmed), Ok(expected.into()));
         }
 
@@ -77,6 +83,9 @@ mod tests {
             cmp("Series Title (Tag)", "Series Title");
             cmp("Series Title 720p", "Series Title");
             cmp("Series Title 1080p", "Series Title");
+            cmp("Series Title S1", "Series Title");
+            cmp("Series Title S01", "Series Title");
+            cmp("Series Title S12", "Series Title");
         }
 
         #[test]
@@ -86,6 +95,7 @@ mod tests {
             cmp("Series Title [Tag1] [Tag2]", "Series Title");
             cmp("[Tag1] Series Title 1080p", "Series Title");
             cmp("[Tag1] Series Title 1080p (Tag 2) (Tag 3)", "Series Title");
+            cmp("[Tag1] Series Title S01 [Tag2] (Tag3)", "Series Title")
         }
     }
 }
