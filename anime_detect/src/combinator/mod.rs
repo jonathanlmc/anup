@@ -1,10 +1,11 @@
+pub mod episode;
 pub mod series;
 
 use winnow::{
     Parser, Result,
     ascii::Caseless,
     combinator::{alt, delimited, opt, repeat},
-    token::take_until,
+    token::{one_of, take_until},
 };
 
 pub const RESOLUTION_TAGS: [Caseless<&str>; 5] = [
@@ -23,6 +24,14 @@ pub fn tag<'a>(input: &mut &'a str) -> Result<&'a str> {
     )
         .map(|(_, tag, _)| tag)
         .parse_next(input)
+}
+
+pub fn none_or_many_tags(input: &mut &str) -> Result<()> {
+    repeat(0.., tag).map(|()| ()).parse_next(input)
+}
+
+pub fn any_tag_start(input: &mut &str) -> Result<()> {
+    one_of(['(', '[']).void().parse_next(input)
 }
 
 pub fn parens<'a>(input: &mut &'a str) -> Result<&'a str> {
