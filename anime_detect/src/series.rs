@@ -21,13 +21,13 @@ pub enum ParseSeriesError {
 }
 
 #[derive(Debug)]
-pub struct Series {
+pub struct TopLevelSeries {
     pub path: PathBuf,
     pub parsed_name: String,
-    pub season_episodes: HashMap<u32, EpisodeSet>,
+    pub episodes: HashMap<SeriesType, EpisodeSet>,
 }
 
-impl Series {
+impl TopLevelSeries {
     pub fn parse_dir(dir: PathBuf) -> Result<Self, ParseSeriesError> {
         let series_name = dir
             .file_name()
@@ -46,20 +46,30 @@ impl Series {
                     .unwrap_or_else(|_| name.into_owned())
             })?;
 
-        let mut season_episodes = HashMap::new();
-        collect_episodes_in_dir(&dir, &mut season_episodes, true)?;
+        let mut episodes = HashMap::new();
+        collect_episodes_in_dir(&dir, &mut episodes, true)?;
 
         Ok(Self {
             path: dir,
             parsed_name: series_name,
-            season_episodes,
+            episodes,
         })
     }
 }
 
+#[derive(Debug, Copy, Clone, Default, Hash, PartialEq, Eq)]
+pub enum SeriesType {
+    #[default]
+    TV,
+    Special,
+    Movie,
+    ONA,
+    OVA,
+}
+
 fn collect_episodes_in_dir(
     dir: &Path,
-    season_episodes: &mut HashMap<u32, EpisodeSet>,
+    episodes: &mut HashMap<SeriesType, EpisodeSet>,
     follow_nested_dirs: bool,
 ) -> Result<(), ParseSeriesError> {
     for entry in dir.read_dir()? {
@@ -102,7 +112,7 @@ fn collect_episodes_in_dir(
 
             // we can assume that a nested directory is a separate season, so try to
             // parse episodes in it
-            collect_episodes_in_dir(&entry.path(), season_episodes, false)?;
+            collect_episodes_in_dir(&entry.path(), episodes, false)?;
         } else {
             let episode = match Episode::parse_with_known_filename(entry.path(), &filename) {
                 Some(ep) => ep,
@@ -123,11 +133,9 @@ fn collect_episodes_in_dir(
                 "analyzed episode"
             );
 
-            let season_eps = season_episodes
-                .entry(episode.season_hint.unwrap_or(1))
-                .or_default();
+            let type_episodes = episodes.entry(episode.series_type_hint).or_default();
 
-            if let Some(replaced) = season_eps.replace(episode) {
+            if let Some(replaced) = type_episodes.replace(episode) {
                 // don't try to recover from this, as it indicates some weird path layout
                 // is being used
                 return Err(ParseSeriesError::DuplicateEpisodesDetected {

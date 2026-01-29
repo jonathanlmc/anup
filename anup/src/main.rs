@@ -3,7 +3,7 @@ fn main() {
 
     let dir = std::env::args().nth(1).expect("no path provided");
 
-    match anime_detect::Series::parse_dir(dir.into()) {
+    match anime_detect::TopLevelSeries::parse_dir(dir.into()) {
         Ok(series) => println!("{series:#?}"),
         Err(err) => eprintln!("failed: {err:?}"),
     }

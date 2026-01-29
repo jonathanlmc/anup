@@ -4,4 +4,4 @@ pub mod episode;
 pub mod series;
 
 pub use episode::{Episode, EpisodeSet};
-pub use series::{ParseSeriesError, Series};
+pub use series::{ParseSeriesError, TopLevelSeries};

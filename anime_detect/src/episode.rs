@@ -1,6 +1,6 @@
 use std::{collections::HashSet, hash::Hash, path::PathBuf};
 
-use crate::combinator;
+use crate::{combinator, series::SeriesType};
 
 pub type EpisodeSet = HashSet<Episode>;
 
@@ -8,7 +8,7 @@ pub type EpisodeSet = HashSet<Episode>;
 pub struct Episode {
     pub number: u32,
     pub season_hint: Option<u32>,
-    pub series_type_hint: SeriesTypeHint,
+    pub series_type_hint: SeriesType,
     pub path: PathBuf,
 }
 
@@ -41,14 +41,4 @@ impl Hash for Episode {
         self.number.hash(state);
         self.series_type_hint.hash(state);
     }
-}
-
-#[derive(Debug, Copy, Clone, Default, Hash, PartialEq, Eq)]
-pub enum SeriesTypeHint {
-    #[default]
-    TV,
-    Special,
-    Movie,
-    ONA,
-    OVA,
 }
