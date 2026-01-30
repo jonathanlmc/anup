@@ -1,14 +1,32 @@
-pub struct Season {
-    pub id: SeasonID,
-    pub name: String,
-    pub episodes: Vec<Episode>,
+use serde::Deserialize;
+
+pub mod api;
+
+#[derive(Clone, Debug)]
+pub struct Anime {
+    pub id: MediaID,
+    pub title: Title,
+    pub episodes: Option<u32>,
 }
 
-pub struct Episode {
-    pub number: u32,
-    pub description: String,
+#[derive(Clone, Debug, Deserialize)]
+pub struct Title {
+    pub english: String,
+    pub romaji: String,
+    pub native: String,
 }
 
-pub struct SeasonID {
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct MediaID {
     pub ani_list: Option<u32>,
+}
+
+mod macros {
+    macro_rules! include_from_root {
+        ($relative_path:expr) => {
+            include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/", $relative_path))
+        };
+    }
+
+    pub(crate) use include_from_root;
 }

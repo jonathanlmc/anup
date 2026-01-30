@@ -1,0 +1,64 @@
+//! Common functionality for all supported anime tracking services.
+
+pub mod anilist;
+
+use serde::Deserialize;
+
+pub use anilist::AniList;
+
+use crate::Anime;
+
+pub type Result<T> = std::result::Result<T, ApiError>;
+
+/// Unified error type for all API interactions.
+#[derive(thiserror::Error, Debug)]
+pub enum ApiError {
+    /// Underlying HTTP error while sending an API request.
+    #[error("internal http error while sending request: {0}")]
+    HttpError(
+        #[from]
+        #[source]
+        reqwest::Error,
+    ),
+    /// The API responded with an error status and message.
+    #[error(
+        "request failed with status `{}`: {}",
+        .0.status,
+        .0.message.as_deref().unwrap_or("unknown error")
+    )]
+    RequestFailed(RequestError),
+    /// Failed to parse the response JSON from an API call.
+    #[error("failed to parse request response: {0}")]
+    InvalidResponseData(serde_json::Error),
+}
+
+impl ApiError {
+    /// Returns `true` if this error was a request failure with the given status.
+    #[inline]
+    pub fn request_failed_with_status(&self, status: u16) -> bool {
+        matches!(
+            self,
+            Self::RequestFailed(RequestError { status: err_status, .. })
+                if *err_status == status
+        )
+    }
+}
+
+/// A failure response from a [`Service`] API call.
+#[serde_with::serde_as]
+#[derive(Clone, Debug, Deserialize)]
+pub struct RequestError {
+    /// Human‑readable error message, if any.
+    #[serde_with(as = "NoneAsEmptyString")]
+    pub message: Option<String>,
+    /// HTTP status code associated with the error.
+    pub status: u16,
+}
+
+/// High-level API calls for all supported anime tracking services.
+pub trait Service {
+    fn get_by_id(
+        client: &reqwest::Client,
+        id: u32,
+    ) -> impl Future<Output = Result<Option<Anime>>> + Send;
+}

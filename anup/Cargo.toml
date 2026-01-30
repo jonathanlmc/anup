@@ -4,5 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anime = { version = "0.1.0", path = "../anime" }
 anime_detect = { version = "0.1.0", path = "../anime_detect" }
+anyhow = "1.0.100"
+reqwest = "0.13.1"
+tokio = { version = "1.49.0", features = ["rt-multi-thread"] }
 tracing-subscriber = "0.3.22"

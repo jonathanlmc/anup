@@ -4,3 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+reqwest = { version = "0.13.1", features = ["json"] }
+serde = { version = "1.0.228", features = ["serde_derive"] }
+serde_json = "1.0.149"
+serde_with = "3.16.1"
+tap = "1.0.1"
+thiserror = "2.0.18"
+tracing = "0.1.44"
