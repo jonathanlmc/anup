@@ -57,8 +57,17 @@ pub struct RequestError {
 
 /// High-level API calls for all supported anime tracking services.
 pub trait Service {
+    /// Get an anime by its ID. [`None`] will be returned
+    /// if the anime ID does not exist on the service.
     fn get_by_id(
         client: &reqwest::Client,
         id: u32,
     ) -> impl Future<Output = Result<Option<Anime>>> + Send;
+
+    /// Search for an anime by a partial name. An iterator with all matching entries
+    /// will be returned on success.
+    fn search_by_name(
+        client: &reqwest::Client,
+        partial_name: &str,
+    ) -> impl Future<Output = Result<impl Iterator<Item = Anime>>>;
 }

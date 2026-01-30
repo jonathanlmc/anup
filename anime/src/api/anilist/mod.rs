@@ -16,10 +16,8 @@ use crate::{
 pub struct AniList;
 
 impl Service for AniList {
-    /// Get an anime by its AniList ID. [`None`] will be returned
-    /// if the anime ID does not exist.
     async fn get_by_id(client: &reqwest::Client, id: u32) -> Result<Option<Anime>> {
-        tracing::debug!(series_id = %id, "sending `search_by_id` request");
+        tracing::debug!(series_id = %id, "sending `get_by_id` request");
 
         request::send::<MediaItem>(
             client,
@@ -41,13 +39,48 @@ impl Service for AniList {
                 Ok(anime) => tracing::debug!(
                     target: "request",
                     series_id = ?anime.as_ref().map(|a: &Anime| a.id),
-                    "`search_by_id` request finished successfully"
+                    "`get_by_id` request finished successfully"
                 ),
                 Err(err) => tracing::debug!(
                     target: "request",
                     series_id = %id,
                     ?err,
-                    "`search_by_id` request finished unsuccessfully"
+                    "`get_by_id` request finished unsuccessfully"
+                ),
+            }
+        })
+    }
+
+    async fn search_by_name(
+        client: &reqwest::Client,
+        partial_name: &str,
+    ) -> Result<impl Iterator<Item = Anime>> {
+        tracing::debug!(%partial_name, "sending `search_by_name` request");
+
+        request::send::<PagedResponse<PagedResponseMediaItems>>(
+            client,
+            include_from_root!("graphql/anilist/search_by_name.gql"),
+            &json!({ "search": partial_name }),
+        )
+        .await
+        .map(|r| r.page.media.into_iter().map(Into::into))
+        .tap(|r| {
+            if !tracing::enabled!(target: "request", tracing::Level::DEBUG) {
+                return;
+            }
+
+            match r {
+                Ok(items) => tracing::debug!(
+                    target: "request",
+                    %partial_name,
+                    found_items = %items.len(),
+                    "`search_by_name` request finished successfully"
+                ),
+                Err(err) => tracing::debug!(
+                    target: "request",
+                    %partial_name,
+                    ?err,
+                    "`search_by_name` request finished unsuccessfully"
                 ),
             }
         })
@@ -58,6 +91,17 @@ impl Service for AniList {
 struct MediaItem {
     #[serde(rename = "Media")]
     media: AnimeInfo,
+}
+
+#[derive(Deserialize)]
+struct PagedResponse<T> {
+    #[serde(rename = "Page")]
+    page: T,
+}
+
+#[derive(Deserialize)]
+struct PagedResponseMediaItems {
+    media: Vec<AnimeInfo>,
 }
 
 #[derive(Debug, Deserialize)]

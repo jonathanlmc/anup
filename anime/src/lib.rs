@@ -11,7 +11,7 @@ pub struct Anime {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Title {
-    pub english: String,
+    pub english: Option<String>,
     pub romaji: String,
     pub native: String,
 }

@@ -1,0 +1,16 @@
+query ($search: String) {
+    Page {
+        media(search: $search, type: ANIME) {
+            id
+            title {
+                romaji
+                english
+                native
+            }
+            episodes
+            nextAiringEpisode {
+                episode
+            }
+        }
+    }
+}
