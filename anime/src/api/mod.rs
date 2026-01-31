@@ -60,6 +60,7 @@ pub trait Service {
     /// Get an anime by its ID. [`None`] will be returned
     /// if the anime ID does not exist on the service.
     fn get_by_id(
+        &self,
         client: &reqwest::Client,
         id: u32,
     ) -> impl Future<Output = Result<Option<Anime>>> + Send;
@@ -67,6 +68,7 @@ pub trait Service {
     /// Search for an anime by a partial name. An iterator with all matching entries
     /// will be returned on success.
     fn search_by_name(
+        &self,
         client: &reqwest::Client,
         partial_name: &str,
     ) -> impl Future<Output = Result<impl Iterator<Item = Anime>>>;

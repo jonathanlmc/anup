@@ -16,7 +16,7 @@ use crate::{
 pub struct AniList;
 
 impl Service for AniList {
-    async fn get_by_id(client: &reqwest::Client, id: u32) -> Result<Option<Anime>> {
+    async fn get_by_id(&self, client: &reqwest::Client, id: u32) -> Result<Option<Anime>> {
         tracing::debug!(series_id = %id, "sending `get_by_id` request");
 
         request::send::<MediaItem>(
@@ -52,6 +52,7 @@ impl Service for AniList {
     }
 
     async fn search_by_name(
+        &self,
         client: &reqwest::Client,
         partial_name: &str,
     ) -> Result<impl Iterator<Item = Anime>> {
