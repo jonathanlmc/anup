@@ -1,5 +1,8 @@
 //! Integration with the AniList GraphQL API.
 
+#[cfg(feature = "rate_limit")]
+pub mod rate_limit;
+
 pub mod request;
 
 use serde::Deserialize;
