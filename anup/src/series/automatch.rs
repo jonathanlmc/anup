@@ -340,6 +340,19 @@ async fn pair_anime_seasons_from_local_episodes(
             .collect::<anime_detect::EpisodeSet>();
 
         if sequel_episodes.is_empty() {
+            // more episodes remaining indicates that there is likely a gap
+            // in the continuous seasons present locally, so try the next sequel
+            if !episodes.is_empty() {
+                tracing::debug!(
+                    top_level_anime_id = %anime_id,
+                    %sequel_id,
+                    ?num_sequel_eps,
+                    "no local episodes present for current sequel; trying next sequel"
+                );
+
+                continue;
+            }
+
             tracing::debug!(
                 top_level_anime_id = %anime_id,
                 %sequel_id,
