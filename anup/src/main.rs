@@ -1,5 +1,14 @@
-use anime::api::Service;
+// temporary
+#![allow(unused)]
+
+mod series;
+
+use std::sync::LazyLock;
+
 use anyhow::Context;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+static REQWEST_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
 
 fn main() -> anyhow::Result<()> {
     // avoid `#[tokio::main]` to avoid yet another dependency on `syn` and `quote`
@@ -11,29 +20,43 @@ fn main() -> anyhow::Result<()> {
 }
 
 async fn main_async() -> anyhow::Result<()> {
-    tracing_subscriber::fmt().init();
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
 
     let mut args = std::env::args().skip(1);
 
     let dir = args.next().context("no path provided")?;
-    let series_id = args
-        .next()
-        .context("no series id provided")?
-        .parse()
-        .context("invalid series id")?;
 
-    match anime_detect::TopLevelSeries::parse_dir(dir.into()) {
-        Ok(series) => println!("{series:#?}"),
-        Err(err) => eprintln!("failed: {err:?}"),
-    }
+    let local_series = match anime_detect::TopLevelSeries::parse_dir(dir.into()) {
+        Ok(series) => {
+            println!("parsed series name: {}", series.parsed_name);
+            series
+        }
+        Err(err) => anyhow::bail!("failed: {err:?}"),
+    };
 
-    let client = reqwest::Client::new();
+    let consolidated_series =
+        match series::automatch::all_formats_and_seasons(local_series, &anime::api::AniList).await?
+        {
+            series::AutomatchResult::Complete(series) => series,
+            series::AutomatchResult::Partial { series, .. } => {
+                eprintln!("only obtained partial match for series");
+                series
+            }
+            series::AutomatchResult::None(others) => {
+                eprintln!("no confident match; other similar series:");
 
-    let media: anime::Anime = anime::api::AniList::get_by_id(&client, series_id)
-        .await?
-        .context("unknown anime id provided")?;
+                for series in others {
+                    eprintln!("{}", series.title.romaji);
+                }
 
-    println!("anilist media:\n{media:#?}");
+                anyhow::bail!("failed to detect series");
+            }
+        };
+
+    println!("consolidated series: {consolidated_series:#?}");
 
     Ok(())
 }
