@@ -17,7 +17,7 @@ pub struct Title {
     pub native: String,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Hash, PartialOrd, Ord, PartialEq, Eq)]
 pub struct MediaID {
     pub ani_list: Option<u32>,
 }
