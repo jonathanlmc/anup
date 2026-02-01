@@ -10,5 +10,6 @@ query ($id: Int) {
         nextAiringEpisode {
             episode
         }
+        format
     }
 }

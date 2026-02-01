@@ -11,6 +11,7 @@ query ($search: String) {
             nextAiringEpisode {
                 episode
             }
+            format
         }
     }
 }

@@ -112,6 +112,7 @@ struct AnimeInfo {
     title: Title,
     episodes: Option<u32>,
     next_airing_episode: Option<NextAiringEpisode>,
+    format: Option<SeriesFormat>,
 }
 
 impl From<AnimeInfo> for crate::Anime {
@@ -130,6 +131,7 @@ impl From<AnimeInfo> for crate::Anime {
             },
             title: value.title,
             episodes,
+            format: value.format.map(Into::into),
         }
     }
 }
@@ -137,4 +139,31 @@ impl From<AnimeInfo> for crate::Anime {
 #[derive(Debug, Deserialize)]
 struct NextAiringEpisode {
     episode: u32,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+enum SeriesFormat {
+    TV,
+    Movie,
+    Special,
+    ONA,
+    OVA,
+    Music,
+    #[serde(other)]
+    Other,
+}
+
+impl From<SeriesFormat> for crate::Format {
+    fn from(value: SeriesFormat) -> Self {
+        match value {
+            SeriesFormat::TV => Self::TV,
+            SeriesFormat::Movie => Self::Movie,
+            SeriesFormat::Special => Self::Special,
+            SeriesFormat::ONA => Self::ONA,
+            SeriesFormat::OVA => Self::OVA,
+            SeriesFormat::Music => Self::Music,
+            SeriesFormat::Other => Self::Other,
+        }
+    }
 }

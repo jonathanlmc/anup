@@ -7,6 +7,7 @@ pub struct Anime {
     pub id: MediaID,
     pub title: Title,
     pub episodes: Option<u32>,
+    pub format: Option<Format>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -19,6 +20,17 @@ pub struct Title {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct MediaID {
     pub ani_list: Option<u32>,
+}
+
+#[derive(Debug, Copy, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]
+pub enum Format {
+    TV,
+    Movie,
+    Special,
+    ONA,
+    OVA,
+    Music,
+    Other,
 }
 
 mod macros {
