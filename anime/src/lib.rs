@@ -2,6 +2,8 @@ use serde::Deserialize;
 
 pub mod api;
 
+pub type AnimeID = u32;
+
 #[derive(Clone, Debug)]
 pub struct Anime {
     pub id: MediaID,
@@ -19,7 +21,7 @@ pub struct Title {
 
 #[derive(Copy, Clone, Debug, Hash, PartialOrd, Ord, PartialEq, Eq)]
 pub struct MediaID {
-    pub ani_list: Option<u32>,
+    pub ani_list: Option<AnimeID>,
 }
 
 #[derive(Debug, Copy, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]

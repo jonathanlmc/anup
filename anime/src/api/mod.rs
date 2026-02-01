@@ -6,7 +6,7 @@ use serde::Deserialize;
 
 pub use anilist::AniList;
 
-use crate::Anime;
+use crate::{Anime, AnimeID};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -57,13 +57,15 @@ pub struct RequestError {
 
 /// High-level API calls for all supported anime tracking services.
 pub trait Service {
+    type AnimeData: AnimeInfo;
+
     /// Get an anime by its ID. [`None`] will be returned
     /// if the anime ID does not exist on the service.
     fn get_by_id(
         &self,
         client: &reqwest::Client,
-        id: u32,
-    ) -> impl Future<Output = Result<Option<Anime>>> + Send;
+        id: AnimeID,
+    ) -> impl Future<Output = Result<Option<Self::AnimeData>>> + Send;
 
     /// Search for an anime by a partial name. An iterator with all matching entries
     /// will be returned on success.
@@ -71,5 +73,15 @@ pub trait Service {
         &self,
         client: &reqwest::Client,
         partial_name: &str,
-    ) -> impl Future<Output = Result<impl Iterator<Item = Anime>>>;
+    ) -> impl Future<Output = Result<impl Iterator<Item = Self::AnimeData>>> + Send;
+
+    fn sequel_id(
+        &self,
+        client: &reqwest::Client,
+        id: AnimeID,
+    ) -> impl Future<Output = Result<Option<AnimeID>>> + Send;
+}
+
+pub trait AnimeInfo: Into<Anime> {
+    fn id(&self) -> AnimeID;
 }
