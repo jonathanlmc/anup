@@ -12,8 +12,13 @@ pub struct Series {
 }
 
 #[derive(Debug)]
-pub struct FormatData {
-    pub info: anime::Anime,
-    pub episodes: anime_detect::EpisodeSet,
-    pub in_sync: bool,
+pub enum FormatData {
+    Matched {
+        info: anime::Anime,
+        episodes: anime_detect::EpisodeSet,
+        in_sync: bool,
+    },
+    Unmatched {
+        episodes: anime_detect::EpisodeSet,
+    },
 }

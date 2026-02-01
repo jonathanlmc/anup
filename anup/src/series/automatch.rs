@@ -18,6 +18,9 @@ pub enum AutomatchResult {
 /// Automatically match all series formats and any continuous seasons within a local
 /// series to one or more anime on a remote service.
 ///
+/// Any episodes that could not be mapped to an anime will be placed into season 0
+/// for their respective format in the returned [`Series`].
+///
 /// ## Continuous Seasons
 ///
 /// For each provided series format, this function will detect any episodes belonging
@@ -259,6 +262,9 @@ struct PairingDetails {
 /// continuous seasons located in the episodes.
 ///
 /// All resolved seasons will be inserted into the provided `resolved_seasons` map.
+///
+/// If any extra episodes are present that do not map to a season, they will
+/// be inserted into season 0 within the map.
 async fn pair_anime_seasons_from_local_episodes(
     anime_id: anime::AnimeID,
     anime: anime::Anime,
@@ -283,7 +289,7 @@ async fn pair_anime_seasons_from_local_episodes(
     let Some(mut episode_offset) = episode_offset else {
         resolved_seasons.insert(
             season_num,
-            FormatData {
+            FormatData::Matched {
                 info: anime,
                 episodes,
                 in_sync: false,
@@ -297,7 +303,7 @@ async fn pair_anime_seasons_from_local_episodes(
     // for the first resolved season
     resolved_seasons.insert(
         season_num,
-        FormatData {
+        FormatData::Matched {
             info: anime,
             episodes: episodes
                 .extract_if(|ep| ep.number <= episode_offset)
@@ -365,7 +371,7 @@ async fn pair_anime_seasons_from_local_episodes(
 
         resolved_seasons.insert(
             season_num,
-            FormatData {
+            FormatData::Matched {
                 info: sequel,
                 episodes: sequel_episodes,
                 in_sync: false,
@@ -373,6 +379,11 @@ async fn pair_anime_seasons_from_local_episodes(
         );
 
         episode_offset += num_sequel_eps.unwrap_or(0);
+    }
+
+    // any remaining episodes can go in to a "special" season 0 since all matched seasons start at 1
+    if !episodes.is_empty() {
+        resolved_seasons.insert(0, FormatData::Unmatched { episodes });
     }
 
     Ok(any_season_missing)
