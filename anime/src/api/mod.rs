@@ -8,11 +8,11 @@ pub use anilist::AniList;
 
 use crate::Anime;
 
-pub type Result<T> = std::result::Result<T, ApiError>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// Unified error type for all API interactions.
 #[derive(thiserror::Error, Debug)]
-pub enum ApiError {
+pub enum Error {
     /// Underlying HTTP error while sending an API request.
     #[error("internal http error while sending request: {0}")]
     HttpError(
@@ -32,7 +32,7 @@ pub enum ApiError {
     InvalidResponseData(serde_json::Error),
 }
 
-impl ApiError {
+impl Error {
     /// Returns `true` if this error was a request failure with the given status.
     #[inline]
     pub fn request_failed_with_status(&self, status: u16) -> bool {

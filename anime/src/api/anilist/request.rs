@@ -3,7 +3,7 @@
 use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::json;
 
-use crate::api::{ApiError, RequestError, Result};
+use crate::api::{Error, RequestError, Result};
 
 /// Base URL for the AniList GraphQL endpoint.
 pub const BASE_URL: &str = "https://graphql.anilist.co";
@@ -26,7 +26,7 @@ pub async fn send<T: DeserializeOwned>(
 ) -> Result<T> {
     // minimize the amount of monomorphisation
     let resp = send_request_impl(client, query, variables).await?;
-    serde_json::from_value(resp).map_err(ApiError::InvalidResponseData)
+    serde_json::from_value(resp).map_err(Error::InvalidResponseData)
 }
 
 async fn send_request_impl(
@@ -67,7 +67,7 @@ async fn send_request_impl(
             // safety: length checked above
             .swap_remove(0);
 
-        return Err(ApiError::RequestFailed(error));
+        return Err(Error::RequestFailed(error));
     }
 
     Ok(resp_json.data)
