@@ -202,7 +202,7 @@ impl From<AnimeEntry> for crate::Anime {
 
         Self {
             id: MediaID {
-                ani_list: Some(value.id),
+                anilist: Some(value.id),
             },
             title: value.title,
             episodes,

@@ -21,7 +21,7 @@ pub struct Title {
 
 #[derive(Copy, Clone, Debug, Hash, PartialOrd, Ord, PartialEq, Eq)]
 pub struct MediaID {
-    pub ani_list: Option<AnimeID>,
+    pub anilist: Option<AnimeID>,
 }
 
 #[derive(Debug, Copy, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]
