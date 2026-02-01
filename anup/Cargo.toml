@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-anime = { version = "0.1.0", path = "../anime" }
+anime = { version = "0.1.0", path = "../anime", features = ["rate_limit"] }
 anime_detect = { version = "0.1.0", path = "../anime_detect", features = ["anime_integration"] }
 anyhow = "1.0.100"
 reqwest = "0.13.1"
