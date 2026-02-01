@@ -25,7 +25,7 @@ use winnow::{
 
 use crate::{
     combinator::{any_tag_start, tag, whitespace},
-    series::SeriesType,
+    series,
 };
 
 const CONTAINER_EXTENSIONS: [Caseless<&str>; 17] = [
@@ -51,7 +51,7 @@ const CONTAINER_EXTENSIONS: [Caseless<&str>; 17] = [
 #[cfg_attr(test, derive(Debug, Default, PartialEq, Eq))]
 pub struct Parsed {
     pub season_hint: Option<u32>,
-    pub series_type_hint: SeriesType,
+    pub series_type_hint: series::Format,
     pub number: u32,
 }
 
@@ -85,11 +85,11 @@ pub fn parse_filename(mut filename: &str) -> Result<Parsed> {
             // we'll only have a type hint if the filename has an explicit special-like marker
             // (such as `special`, `ona`, or `ova`), so not having like *probably* means
             // this is a TV series
-            series_type_hint: type_hint.unwrap_or(SeriesType::TV),
+            series_type_hint: type_hint.unwrap_or(series::Format::TV),
             number: ep_and_season.number,
         }),
         // if we at least have a type hint for a special-like episode, treat this as a one-off
-        (Err(_), Some(type_hint)) if type_hint != SeriesType::TV => Ok(Parsed {
+        (Err(_), Some(type_hint)) if type_hint != series::Format::TV => Ok(Parsed {
             season_hint: Some(0),
             series_type_hint: type_hint,
             number: 1,
@@ -104,18 +104,18 @@ fn separator(input: &mut &str) -> Result<()> {
         .parse_next(input)
 }
 
-fn type_hint_label(input: &mut &str) -> Result<SeriesType> {
+fn type_hint_label(input: &mut &str) -> Result<series::Format> {
     (
         alt((separator, whitespace)),
         // it's not really worth the complexity trying to make sure this
         // tag ends properly if there does happen to be one here
         opt(any_tag_start),
         alt((
-            (Caseless("special"), opt(Caseless("s"))).map(|_| SeriesType::Special),
+            (Caseless("special"), opt(Caseless("s"))).map(|_| series::Format::Special),
             // case-sensitive to avoid false positives
-            "ONA".map(|_| SeriesType::ONA),
-            "OVA".map(|_| SeriesType::OVA),
-            Caseless("movie").map(|_| SeriesType::Movie),
+            "ONA".map(|_| series::Format::ONA),
+            "OVA".map(|_| series::Format::OVA),
+            Caseless("movie").map(|_| series::Format::Movie),
         )),
         opt(file_version),
     )
@@ -190,7 +190,7 @@ mod tests {
         }
 
         #[track_caller]
-        fn cmp_ep_and_type(input: &str, expected_ep: u32, expected_type: SeriesType) {
+        fn cmp_ep_and_type(input: &str, expected_ep: u32, expected_type: series::Format) {
             cmp(
                 input,
                 Parsed {
@@ -273,12 +273,16 @@ mod tests {
 
         #[test]
         fn with_type_hint() {
-            cmp_ep_and_type("Series Title ONA - 12.mkv", 12, SeriesType::ONA);
-            cmp_ep_and_type("Series Title - 12 (ONA).mkv", 12, SeriesType::ONA);
-            cmp_ep_and_type("Series Title OVA - 12.mkv", 12, SeriesType::OVA);
-            cmp_ep_and_type("Series Title Special - 12.mkv", 12, SeriesType::Special);
+            cmp_ep_and_type("Series Title ONA - 12.mkv", 12, series::Format::ONA);
+            cmp_ep_and_type("Series Title - 12 (ONA).mkv", 12, series::Format::ONA);
+            cmp_ep_and_type("Series Title OVA - 12.mkv", 12, series::Format::OVA);
+            cmp_ep_and_type("Series Title Special - 12.mkv", 12, series::Format::Special);
 
-            cmp_ep_and_type("Series Title Specials - 12.mkv", 12, SeriesType::Special);
+            cmp_ep_and_type(
+                "Series Title Specials - 12.mkv",
+                12,
+                series::Format::Special,
+            );
 
             let cmp_one_off = |input, type_hint| {
                 cmp(
@@ -292,10 +296,13 @@ mod tests {
                 )
             };
 
-            cmp_one_off("Series Title Specials - S00E01.mkv", SeriesType::Special);
-            cmp_one_off("Series Title - ONA.mkv", SeriesType::ONA);
-            cmp_one_off("Series Title - ONAv2.mkv", SeriesType::ONA);
-            cmp_one_off("Series Title Movie.mkv", SeriesType::Movie);
+            cmp_one_off(
+                "Series Title Specials - S00E01.mkv",
+                series::Format::Special,
+            );
+            cmp_one_off("Series Title - ONA.mkv", series::Format::ONA);
+            cmp_one_off("Series Title - ONAv2.mkv", series::Format::ONA);
+            cmp_one_off("Series Title Movie.mkv", series::Format::Movie);
         }
     }
 }

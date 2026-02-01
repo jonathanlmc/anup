@@ -1,6 +1,6 @@
 use std::{collections::HashSet, hash::Hash, path::PathBuf};
 
-use crate::{combinator, series::SeriesType};
+use crate::{combinator, series};
 
 pub type EpisodeSet = HashSet<Episode>;
 
@@ -8,7 +8,7 @@ pub type EpisodeSet = HashSet<Episode>;
 pub struct Episode {
     pub number: u32,
     pub season_hint: Option<u32>,
-    pub series_type_hint: SeriesType,
+    pub series_type_hint: series::Format,
     pub path: PathBuf,
 }
 

@@ -24,7 +24,7 @@ pub enum ParseSeriesError {
 pub struct TopLevelSeries {
     pub path: PathBuf,
     pub parsed_name: String,
-    pub episodes: HashMap<SeriesType, EpisodeSet>,
+    pub episodes: HashMap<Format, EpisodeSet>,
 }
 
 impl TopLevelSeries {
@@ -58,18 +58,65 @@ impl TopLevelSeries {
 }
 
 #[derive(Debug, Copy, Clone, Default, Hash, PartialEq, Eq)]
-pub enum SeriesType {
+pub enum Format {
     #[default]
     TV,
     Special,
     Movie,
     ONA,
     OVA,
+    Music,
+}
+
+#[cfg(feature = "anime_integration")]
+impl PartialEq<anime::Format> for Format {
+    fn eq(&self, other: &anime::Format) -> bool {
+        use anime::Format::*;
+
+        matches!(
+            (self, other),
+            (Self::TV, TV)
+                | (Self::Special, Special)
+                | (Self::Movie, Movie)
+                | (Self::ONA, ONA)
+                | (Self::OVA, OVA)
+        )
+    }
+}
+
+#[cfg(feature = "anime_integration")]
+impl From<anime::Format> for Format {
+    fn from(value: anime::Format) -> Self {
+        use anime::Format::*;
+
+        match value {
+            TV | Other => Self::TV,
+            Special => Self::Special,
+            Movie => Self::Movie,
+            ONA => Self::ONA,
+            OVA => Self::OVA,
+            Music => Self::Music,
+        }
+    }
+}
+
+#[cfg(feature = "anime_integration")]
+impl From<Format> for anime::Format {
+    fn from(value: Format) -> Self {
+        match value {
+            Format::TV => Self::TV,
+            Format::Special => Self::Special,
+            Format::Movie => Self::Movie,
+            Format::ONA => Self::ONA,
+            Format::OVA => Self::OVA,
+            Format::Music => Self::Music,
+        }
+    }
 }
 
 fn collect_episodes_in_dir(
     dir: &Path,
-    episodes: &mut HashMap<SeriesType, EpisodeSet>,
+    episodes: &mut HashMap<Format, EpisodeSet>,
     follow_nested_dirs: bool,
 ) -> Result<(), ParseSeriesError> {
     for entry in dir.read_dir()? {

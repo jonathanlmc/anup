@@ -5,7 +5,11 @@ edition = "2024"
 license.workspace = true
 
 [dependencies]
+anime = { version = "0.1.0", path = "../anime", optional = true }
 tap = "1.0.1"
 thiserror = "2.0.18"
 tracing = "0.1.44"
 winnow = { version = "0.7.14", features = ["simd"] }
+
+[features]
+anime_integration = ["dep:anime"]
