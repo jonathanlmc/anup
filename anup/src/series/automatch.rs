@@ -6,13 +6,11 @@ use anyhow::Context;
 use crate::series::{FormatData, SeasonMap, Series};
 
 pub enum AutomatchResult {
-    Complete(Series),
-    Partial {
-        series: Series,
-        format_pairing_missing: bool,
-        season_pairing_missing: bool,
+    Matched(Series),
+    None {
+        local_series: anime_detect::TopLevelSeries,
+        searched_anime: Vec<anime::Anime>,
     },
-    None(Vec<anime::Anime>),
 }
 
 /// Automatically match all series formats and any continuous seasons within a local
@@ -54,9 +52,10 @@ pub async fn all_formats_and_seasons<S: anime::api::Service>(
     let scored_formats = ScoredFormats::from_searched_anime(local_data, &searched_anime);
 
     if scored_formats.is_empty() {
-        return Ok(AutomatchResult::None(
-            searched_anime.into_values().collect(),
-        ));
+        return Ok(AutomatchResult::None {
+            local_series: scored_formats.local_data,
+            searched_anime: searched_anime.into_values().collect(),
+        });
     }
 
     let pair_details = scored_formats
@@ -65,18 +64,12 @@ pub async fn all_formats_and_seasons<S: anime::api::Service>(
         .context("pairing local series with searched anime failed")?;
 
     let series = Series {
+        parsed_local_name: pair_details.parsed_local_name,
         formats: pair_details.paired_formats,
+        episodes_without_paired_format: pair_details.episodes_without_paired_format,
     };
 
-    if pair_details.any_format_pairing_missing || pair_details.any_season_pairing_missing {
-        Ok(AutomatchResult::Partial {
-            series,
-            format_pairing_missing: pair_details.any_format_pairing_missing,
-            season_pairing_missing: pair_details.any_season_pairing_missing,
-        })
-    } else {
-        Ok(AutomatchResult::Complete(series))
-    }
+    Ok(AutomatchResult::Matched(series))
 }
 
 type HighestScore = u32;
@@ -185,14 +178,6 @@ impl ScoredFormats {
         self.scores.is_empty()
     }
 
-    /// Returns true if there are any local series formats that were not given an adequate score.
-    fn any_formats_missing(&self) -> bool {
-        self.local_data
-            .episodes
-            .keys()
-            .any(|&local_fmt| !self.scores.contains_key(&local_fmt.into()))
-    }
-
     /// Link each scored format with its best matching anime.
     ///
     /// This will resolve any continuous seasons detected in any
@@ -204,9 +189,6 @@ impl ScoredFormats {
     ) -> anyhow::Result<PairingDetails> {
         let mut paired_formats = HashMap::with_capacity(self.scores.len());
 
-        let mut any_format_pairing_missing = self.any_formats_missing();
-        let mut any_season_pairing_missing = false;
-
         for (format, (_, anime_id)) in self.scores {
             // each format should only be able to reference one unique series
             let Some(anime) = searched_anime.remove(&anime_id) else {
@@ -216,7 +198,6 @@ impl ScoredFormats {
                     "encountered duplicate anime for format; not pairing format to any anime series"
                 );
 
-                any_format_pairing_missing = true;
                 continue;
             };
 
@@ -228,7 +209,7 @@ impl ScoredFormats {
 
             let mut resolved_seasons = SeasonMap::with_capacity(1);
 
-            let season_pairing_missing = pair_anime_seasons_from_local_episodes(
+            pair_anime_seasons_from_local_episodes(
                 anime_id,
                 anime,
                 episodes,
@@ -237,25 +218,21 @@ impl ScoredFormats {
             )
             .await?;
 
-            if season_pairing_missing {
-                any_season_pairing_missing = true;
-            }
-
             paired_formats.insert(format, resolved_seasons);
         }
 
         Ok(PairingDetails {
+            parsed_local_name: self.local_data.parsed_name,
             paired_formats,
-            any_format_pairing_missing,
-            any_season_pairing_missing,
+            episodes_without_paired_format: self.local_data.episodes,
         })
     }
 }
 
 struct PairingDetails {
+    parsed_local_name: String,
     paired_formats: HashMap<anime::Format, SeasonMap>,
-    any_format_pairing_missing: bool,
-    any_season_pairing_missing: bool,
+    episodes_without_paired_format: HashMap<anime_detect::series::Format, anime_detect::EpisodeSet>,
 }
 
 /// Link a local set of episodes to an anime season, and resolve any

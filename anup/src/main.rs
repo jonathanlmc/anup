@@ -6,7 +6,10 @@ mod tui;
 
 use std::sync::LazyLock;
 
+use anyhow::Context;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+use crate::tui::state;
 
 static REQWEST_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
 
@@ -17,7 +20,14 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    tui::App::init(tui::AppState {})?.run().await;
+    let path = std::env::args().nth(1).context("missing path arg")?;
+
+    tui::App::init(tui::AppState {
+        series_scan_dir: path.into(),
+        series: state::series::List::new(),
+    })?
+    .run()
+    .await;
 
     Ok(())
 }

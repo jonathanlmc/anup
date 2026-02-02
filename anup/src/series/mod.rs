@@ -8,7 +8,10 @@ pub type SeasonMap = HashMap<u32, FormatData>;
 
 #[derive(Debug)]
 pub struct Series {
+    pub parsed_local_name: String,
     pub formats: HashMap<anime::Format, SeasonMap>,
+    pub episodes_without_paired_format:
+        HashMap<anime_detect::series::Format, anime_detect::EpisodeSet>,
 }
 
 #[derive(Debug)]

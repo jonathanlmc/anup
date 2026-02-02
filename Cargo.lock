@@ -65,6 +65,7 @@ dependencies = [
  "ratatui",
  "reqwest",
  "strsim",
+ "tap",
  "tokio",
  "tracing",
  "tracing-subscriber",
