@@ -24,7 +24,7 @@ impl AppEvent {
         match self {
             Self::Terminal(event) => terminal::process(event, render_trigger).await,
             Self::Series(payload) => {
-                series::process(payload, state).await;
+                series::process(payload, state, render_trigger).await;
                 Result::Continue
             }
         }

@@ -12,7 +12,11 @@ pub enum Payload {
     },
 }
 
-pub(super) async fn process(payload: Payload, app_state: &mut tui::AppState) {
+pub(super) async fn process(
+    payload: Payload,
+    app_state: &mut tui::AppState,
+    render_trigger: &tui::RenderTrigger,
+) {
     match payload {
         Payload::Create {
             state,
@@ -20,12 +24,15 @@ pub(super) async fn process(payload: Payload, app_state: &mut tui::AppState) {
         } => {
             let index = app_state.series.push(state);
             stable_index_reply.send(index).ok();
+            render_trigger.notify_one();
         }
         Payload::Update {
             stable_index,
             state,
         } => {
-            app_state.series.set(stable_index, state);
+            if app_state.series.set(stable_index, state) {
+                render_trigger.notify_one();
+            }
         }
     }
 }

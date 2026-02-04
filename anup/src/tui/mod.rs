@@ -42,7 +42,6 @@ impl App {
         tokio::spawn(task::series::scan_and_resolve_all_in_dir(
             app_events.new_sender(),
             state.series_scan_dir.clone(),
-            render_trigger.clone(),
         ));
 
         Ok(Self {

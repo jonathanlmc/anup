@@ -12,14 +12,9 @@ use crate::{
     },
 };
 
-pub async fn scan_and_resolve_all_in_dir(
-    event_chan: event::EventSender,
-    dir: PathBuf,
-    render_trigger: Arc<tui::RenderTrigger>,
-) {
+pub async fn scan_and_resolve_all_in_dir(event_chan: event::EventSender, dir: PathBuf) {
     // borrowing here avoids the need to clone in async blocks
     let event_chan = &event_chan;
-    let render_trigger = &render_trigger;
 
     let series_candidates = match add_series_dir_candidates(dir.clone(), event_chan).await {
         Ok(candidates) => candidates,
@@ -33,8 +28,6 @@ pub async fn scan_and_resolve_all_in_dir(
         return;
     }
 
-    render_trigger.notify_one();
-
     let parse_series_iter = series_candidates.into_iter().map(|candidate| async move {
         let local_series = parse_local_series_with_state(candidate.path, candidate.filename).await;
 
@@ -46,8 +39,6 @@ pub async fn scan_and_resolve_all_in_dir(
             .await
             .ok();
 
-        render_trigger.notify_one();
-
         (local_series.series, candidate.stable_index)
     });
 
@@ -55,8 +46,7 @@ pub async fn scan_and_resolve_all_in_dir(
         .buffered(50)
         .for_each_concurrent(2, |(series, stable_index)| async move {
             if let Some(series) = series {
-                automatch_series_and_update_state(series, stable_index, event_chan, render_trigger)
-                    .await
+                automatch_series_and_update_state(series, stable_index, event_chan).await
             }
         })
         .await;
@@ -186,7 +176,6 @@ async fn automatch_series_and_update_state(
     local_series: anime_detect::TopLevelSeries,
     stable_index: usize,
     event_chan: &event::EventSender,
-    render_trigger: &tui::RenderTrigger,
 ) {
     let parsed_local_name = local_series.parsed_name.clone();
 
@@ -197,8 +186,6 @@ async fn automatch_series_and_update_state(
         }))
         .await
         .ok();
-
-    render_trigger.notify_one();
 
     let series_result =
         series::automatch::all_formats_and_seasons(local_series, &anime::api::AniList).await;
@@ -220,8 +207,6 @@ async fn automatch_series_and_update_state(
                 .await
                 .ok();
 
-            render_trigger.notify_one();
-
             return;
         }
         Err(err) => {
@@ -236,8 +221,6 @@ async fn automatch_series_and_update_state(
                 .await
                 .ok();
 
-            render_trigger.notify_one();
-
             return;
         }
     };
@@ -249,6 +232,4 @@ async fn automatch_series_and_update_state(
         }))
         .await
         .ok();
-
-    render_trigger.notify_one();
 }
