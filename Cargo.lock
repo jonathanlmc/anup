@@ -62,6 +62,7 @@ dependencies = [
  "crossterm",
  "derive_more",
  "futures",
+ "indexmap 2.13.0",
  "ratatui",
  "reqwest",
  "strsim",

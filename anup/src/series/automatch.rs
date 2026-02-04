@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use anime::api::AnimeInfo;
 use anyhow::Context;
+use indexmap::IndexMap;
 
 use crate::series::{FormatData, SeasonMap, Series};
 
@@ -58,10 +59,12 @@ pub async fn all_formats_and_seasons<S: anime::api::Service>(
         });
     }
 
-    let pair_details = scored_formats
+    let mut pair_details = scored_formats
         .pair_with_searched_anime(searched_anime, anime_service)
         .await
         .context("pairing local series with searched anime failed")?;
+
+    pair_details.paired_formats.sort_unstable_keys();
 
     let series = Series {
         parsed_local_name: pair_details.parsed_local_name,
@@ -187,7 +190,7 @@ impl ScoredFormats {
         mut searched_anime: HashMap<anime::AnimeID, anime::Anime>,
         anime_service: &impl anime::api::Service,
     ) -> anyhow::Result<PairingDetails> {
-        let mut paired_formats = HashMap::with_capacity(self.scores.len());
+        let mut paired_formats = IndexMap::with_capacity(self.scores.len());
 
         for (format, (_, anime_id)) in self.scores {
             // each format should only be able to reference one unique series
@@ -231,7 +234,7 @@ impl ScoredFormats {
 
 struct PairingDetails {
     parsed_local_name: String,
-    paired_formats: HashMap<anime::Format, SeasonMap>,
+    paired_formats: IndexMap<anime::Format, SeasonMap>,
     episodes_without_paired_format: HashMap<anime_detect::series::Format, anime_detect::EpisodeSet>,
 }
 
