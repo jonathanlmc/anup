@@ -15,6 +15,6 @@ ratatui = { version = "0.30.0", default-features = false, features = ["crossterm
 reqwest = "0.13.1"
 strsim = "0.11.1"
 tap = "1.0.1"
-tokio = { version = "1.49.0", features = ["rt-multi-thread", "macros", "fs"] }
+tokio = { version = "1.49.0", features = ["rt", "macros", "fs"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22" }

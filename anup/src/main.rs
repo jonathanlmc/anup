@@ -14,7 +14,7 @@ use crate::tui::state;
 
 static REQWEST_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
     // the `EnvFilter` layer for `tracing_subscriber` can do this for us but
     // it pulls in the large `regex-automata` crate which is overkill for our
