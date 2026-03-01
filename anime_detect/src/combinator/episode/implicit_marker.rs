@@ -31,6 +31,7 @@ pub fn parse_filename(input: &mut &str) -> Result<ParsedEpAndSeason> {
         .map(|(_, episode)| ParsedEpAndSeason {
             number: episode,
             season_hint: None,
+            format_hint: None,
         })
         .parse_next(input)
 }

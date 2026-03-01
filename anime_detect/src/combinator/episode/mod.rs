@@ -59,6 +59,7 @@ pub struct Parsed {
 struct ParsedEpAndSeason {
     number: u32,
     season_hint: Option<u32>,
+    format_hint: Option<series::Format>,
 }
 
 pub fn parse_filename(mut filename: &str) -> Result<Parsed> {
@@ -74,10 +75,16 @@ pub fn parse_filename(mut filename: &str) -> Result<Parsed> {
         .parse_next(&mut fname_copy)
     };
 
-    let type_hint = repeat_till(0.., any, type_hint_label)
-        .map(|((), hint)| hint)
-        .parse_next(&mut filename)
-        .ok();
+    let type_hint = episode_and_season
+        .as_ref()
+        .ok()
+        .and_then(|p| p.format_hint)
+        .or_else(|| {
+            repeat_till(0.., any, type_hint_label)
+                .map(|((), hint)| hint)
+                .parse_next(&mut filename)
+                .ok()
+        });
 
     match (episode_and_season, type_hint) {
         (Ok(ep_and_season), type_hint) => Ok(Parsed {
@@ -110,17 +117,22 @@ fn type_hint_label(input: &mut &str) -> Result<series::Format> {
         // it's not really worth the complexity trying to make sure this
         // tag ends properly if there does happen to be one here
         opt(any_tag_start),
-        alt((
-            (Caseless("special"), opt(Caseless("s"))).map(|_| series::Format::Special),
-            // case-sensitive to avoid false positives
-            "ONA".map(|_| series::Format::ONA),
-            "OVA".map(|_| series::Format::OVA),
-            Caseless("movie").map(|_| series::Format::Movie),
-        )),
+        type_hint_str,
         opt(file_version),
     )
         .map(|(_, _, series_type, _)| series_type)
         .parse_next(input)
+}
+
+fn type_hint_str(input: &mut &str) -> Result<series::Format> {
+    alt((
+        (Caseless("special"), opt(Caseless("s"))).map(|_| series::Format::Special),
+        // case-sensitive to avoid false positives
+        "ONA".map(|_| series::Format::ONA),
+        "OVA".map(|_| series::Format::OVA),
+        Caseless("movie").map(|_| series::Format::Movie),
+    ))
+    .parse_next(input)
 }
 
 fn parsed_digits(input: &mut &str) -> Result<u32> {
@@ -277,6 +289,15 @@ mod tests {
             cmp_ep_and_type("Series Title - 12 (ONA).mkv", 12, series::Format::ONA);
             cmp_ep_and_type("Series Title OVA - 12.mkv", 12, series::Format::OVA);
             cmp_ep_and_type("Series Title Special - 12.mkv", 12, series::Format::Special);
+
+            cmp(
+                "Series Title - S01OVA02.mkv",
+                Parsed {
+                    number: 2,
+                    season_hint: Some(1),
+                    series_type_hint: series::Format::OVA,
+                },
+            );
 
             cmp_ep_and_type(
                 "Series Title Specials - 12.mkv",

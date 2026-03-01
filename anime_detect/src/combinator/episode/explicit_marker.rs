@@ -7,9 +7,12 @@ use winnow::{
     token::any,
 };
 
-use crate::combinator::{
-    episode::{ParsedEpAndSeason, parsed_digits, rest_of_filename, separator},
-    none_or_many_tags, whitespace,
+use crate::{
+    combinator::{
+        episode::{ParsedEpAndSeason, parsed_digits, rest_of_filename, separator, type_hint_str},
+        none_or_many_tags, whitespace,
+    },
+    series,
 };
 
 pub fn parse_filename(input: &mut &str) -> Result<ParsedEpAndSeason> {
@@ -24,13 +27,15 @@ pub fn parse_filename(input: &mut &str) -> Result<ParsedEpAndSeason> {
 
 fn any_marker(input: &mut &str) -> Result<ParsedEpAndSeason> {
     let marker = alt((
-        season_followed_by_episode.map(|(season, episode)| ParsedEpAndSeason {
+        season_followed_by_episode.map(|(season, format_hint, episode)| ParsedEpAndSeason {
             number: episode,
             season_hint: Some(season),
+            format_hint,
         }),
-        episode_marker.map(|episode| ParsedEpAndSeason {
+        episode_marker.map(|(episode, format_hint)| ParsedEpAndSeason {
             number: episode,
             season_hint: None,
+            format_hint,
         }),
     ));
 
@@ -39,16 +44,16 @@ fn any_marker(input: &mut &str) -> Result<ParsedEpAndSeason> {
         .parse_next(input)
 }
 
-fn season_followed_by_episode(input: &mut &str) -> Result<(u32, u32)> {
+fn season_followed_by_episode(input: &mut &str) -> Result<(u32, Option<series::Format>, u32)> {
     winnow::seq!(
         season_marker,
         _: opt(whitespace),
         _: opt('-'),
         _: opt(whitespace),
-        _: opt(episode_header),
+        opt(episode_header),
         parsed_digits,
     )
-    .map(|(season, episode)| (season, episode))
+    .map(|(season, format_hint, episode)| (season, format_hint.flatten(), episode))
     .parse_next(input)
 }
 
@@ -64,17 +69,18 @@ fn season_marker(input: &mut &str) -> Result<u32> {
         .parse_next(input)
 }
 
-fn episode_header(input: &mut &str) -> Result<()> {
+fn episode_header(input: &mut &str) -> Result<Option<series::Format>> {
     alt((
-        (Caseless("episode"), whitespace).void(),
-        (Caseless("ep"), opt(whitespace)).void(),
-        Caseless("e").void(),
+        (Caseless("episode"), whitespace).map(|_| None),
+        (Caseless("ep"), opt(whitespace)).map(|_| None),
+        Caseless("e").map(|_| None),
+        type_hint_str.map(|hint| Some(hint)),
     ))
     .parse_next(input)
 }
 
-pub fn episode_marker(input: &mut &str) -> Result<u32> {
+pub fn episode_marker(input: &mut &str) -> Result<(u32, Option<series::Format>)> {
     (episode_header, opt(separator), parsed_digits)
-        .map(|(_, _, num)| num)
+        .map(|(format, _, num)| (num, format))
         .parse_next(input)
 }
