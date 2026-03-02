@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 parking_lot = { version = "0.12.5", optional = true }
-reqwest = { version = "0.13.1", features = ["json"] }
+reqwest = { version = "0.13.1", default-features = false, features = ["json"] }
 serde = { version = "1.0.228", features = ["serde_derive"] }
 serde_json = "1.0.149"
 serde_with = "3.16.1"
