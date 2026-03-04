@@ -1,8 +1,9 @@
 pub mod state;
 
-mod component;
 mod event;
+mod panel;
 mod task;
+mod widget;
 
 use std::sync::Arc;
 
@@ -12,17 +13,17 @@ use futures::StreamExt;
 pub use crate::tui::state::AppState;
 
 use crate::tui::{
-    component::Component,
     event::{AppEvent, EventsChannel},
+    panel::Panel,
 };
 
-type AllComponents = [Box<dyn Component>; 1];
+type AllPanels = [Box<dyn Panel>; 1];
 type RenderTrigger = tokio::sync::Notify;
 
 pub struct App {
     terminal: ratatui::DefaultTerminal,
     state: AppState,
-    components: AllComponents,
+    panels: AllPanels,
     render_trigger: Arc<RenderTrigger>,
     app_events: EventsChannel,
 }
@@ -31,7 +32,7 @@ impl App {
     pub fn init(state: AppState) -> anyhow::Result<Self> {
         let terminal = ratatui::try_init().context("failed to initialize tui interface")?;
 
-        let components = [Box::new(component::SeriesList::new()) as _];
+        let panels = [Box::new(panel::MainPanel::new()) as _];
 
         let render_trigger = Arc::new(RenderTrigger::new());
         // trigger the first render immediately
@@ -47,7 +48,7 @@ impl App {
         Ok(Self {
             terminal,
             state,
-            components,
+            panels,
             render_trigger,
             app_events,
         })
@@ -59,19 +60,29 @@ impl App {
         loop {
             tokio::select! {
                 Some(Ok(event)) = terminal_event_stream.next() => {
-                    if AppEvent::from(event).process(&mut self.state, &self.render_trigger).await == event::Result::Quit {
+                    let event = AppEvent::from(event);
+
+                    let result = event
+                        .process(&mut self.state, &mut self.panels, &self.render_trigger)
+                        .await;
+
+                    if result == event::Result::Quit {
                         break;
                     }
                 }
                 Some(app_event) = self.app_events.recv() => {
-                    if app_event.process(&mut self.state, &self.render_trigger).await == event::Result::Quit {
+                    let result = app_event
+                        .process(&mut self.state, &mut self.panels, &self.render_trigger)
+                        .await;
+
+                    if result == event::Result::Quit {
                         break;
                     }
                 }
                 _ = self.render_trigger.notified() => {
                     let draw_result = self
                         .terminal
-                        .draw(|frame| render(frame, &mut self.components, &self.state));
+                        .draw(|frame| render(frame, &mut self.panels, &self.state));
 
                     if let Err(err) = draw_result {
                         tracing::error!("failed to render tui frame: {err}");
@@ -89,8 +100,8 @@ impl Drop for App {
     }
 }
 
-fn render(frame: &mut ratatui::Frame, components: &mut AllComponents, state: &AppState) {
-    for component in components {
+fn render(frame: &mut ratatui::Frame, panels: &mut AllPanels, state: &AppState) {
+    for component in panels {
         component.render(frame, state);
     }
 }

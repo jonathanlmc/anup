@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
 use anyhow::{Context, anyhow};
 use futures::StreamExt;
@@ -6,7 +6,6 @@ use futures::StreamExt;
 use crate::{
     series,
     tui::{
-        self,
         event::{self, AppEvent},
         state,
     },

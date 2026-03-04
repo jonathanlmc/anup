@@ -17,12 +17,13 @@ impl AppEvent {
     pub async fn process(
         self,
         state: &mut tui::AppState,
+        panels: &mut tui::AllPanels,
         render_trigger: &tui::RenderTrigger,
     ) -> Result {
         tracing::trace!(?self, "processing application event");
 
         match self {
-            Self::Terminal(event) => terminal::process(event, render_trigger).await,
+            Self::Terminal(event) => terminal::process(event, state, panels, render_trigger).await,
             Self::Series(payload) => {
                 series::process(payload, state, render_trigger).await;
                 Result::Continue

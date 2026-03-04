@@ -1,8 +1,10 @@
 use std::borrow::Cow;
 
+use derive_more::Deref;
+
 use crate::series::Series;
 
-#[derive(Debug, derive_more::Deref)]
+#[derive(Debug, Deref)]
 pub struct List(Vec<Entry>);
 
 impl List {
@@ -69,6 +71,13 @@ impl EntryState {
             Self::Detected(name) => name,
             Self::Unmatched { local_series, .. } => &local_series.parsed_name,
             Self::Failure { name, .. } => name,
+        }
+    }
+
+    pub fn series_data(&self) -> Option<&Series> {
+        match self {
+            Self::Resolved(series) => Some(series),
+            _ => None,
         }
     }
 }
