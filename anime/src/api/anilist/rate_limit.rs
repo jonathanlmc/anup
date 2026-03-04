@@ -19,15 +19,30 @@ use std::{
 use tokio::sync::{Notify, Semaphore};
 
 /// How often to add a request permit when any have been used.
-/// Defaults to 2 seconds (30 requests per minute).
+/// Defaults to 3.1 seconds (~20 requests per minute).
+///
+/// This default factors in the default burst request limit, and
+/// adds an additional 100 milliseconds to avoid getting rate limited
+/// when sending exactly 30 requests per minute (AniList's current limit
+/// at the time of writing).
 ///
 /// AniList documents its current limit here:
 /// https://docs.anilist.co/guide/rate-limiting#rate-limiting
-pub static REFILL_PERMIT_EVERY: Mutex<Duration> = Mutex::new(Duration::from_secs(2));
+pub static REFILL_PERMIT_EVERY: Mutex<Duration> = Mutex::new(Duration::from_millis(
+    60 /
+    // account for the burst limit
+    (30 - DEFAULT_BURST_AMOUNT as u64)
+        * 1000
+        // we can still get rate limited if we're sending requests exactly at
+        // the limit rate
+        + 100,
+));
 
 /// The maximum number of requests that can be sent in a burst, without any delays.
 /// Defaults to 10.
-pub static BURST_AMOUNT: Mutex<usize> = Mutex::new(10);
+pub static BURST_AMOUNT: Mutex<usize> = Mutex::new(DEFAULT_BURST_AMOUNT);
+
+const DEFAULT_BURST_AMOUNT: usize = 10;
 
 static PERMIT_ACQUIRED: LazyLock<Arc<Notify>> = LazyLock::new(|| Arc::new(Notify::new()));
 
