@@ -74,7 +74,7 @@ fn episode_header(input: &mut &str) -> Result<Option<series::Format>> {
         (Caseless("episode"), whitespace).map(|_| None),
         (Caseless("ep"), opt(whitespace)).map(|_| None),
         Caseless("e").map(|_| None),
-        type_hint_str.map(|hint| Some(hint)),
+        type_hint_str.map(Some),
     ))
     .parse_next(input)
 }
