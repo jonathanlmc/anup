@@ -11,9 +11,8 @@
 //! could lead to rate limits being hit if multiple API instances are used throughout an application (ex. to manage
 //! multiple accounts).
 
-use parking_lot::Mutex;
 use std::{
-    sync::{Arc, LazyLock},
+    sync::{Arc, LazyLock, Mutex, PoisonError},
     time::Duration,
 };
 use tokio::sync::{Notify, Semaphore};
@@ -47,7 +46,8 @@ const DEFAULT_BURST_AMOUNT: usize = 10;
 static PERMIT_ACQUIRED: LazyLock<Arc<Notify>> = LazyLock::new(|| Arc::new(Notify::new()));
 
 static RATE_LIMIT_PERMITS: LazyLock<Arc<Semaphore>> = LazyLock::new(|| {
-    let semaphore = Arc::new(Semaphore::new(*BURST_AMOUNT.lock()));
+    let burst_amount = BURST_AMOUNT.lock().unwrap_or_else(PoisonError::into_inner);
+    let semaphore = Arc::new(Semaphore::new(*burst_amount));
 
     let sem_clone = semaphore.clone();
     let notif_clone = PERMIT_ACQUIRED.clone();
@@ -59,12 +59,15 @@ static RATE_LIMIT_PERMITS: LazyLock<Arc<Semaphore>> = LazyLock::new(|| {
 
 async fn refill_permits(semaphore: Arc<Semaphore>, permit_acquired: Arc<Notify>) {
     loop {
-        // access mutexes in their own block to ensure the lock is held as
-        // little as possible
-        let sleep_dur = { *REFILL_PERMIT_EVERY.lock() };
+        let sleep_dur = *REFILL_PERMIT_EVERY
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+
         tokio::time::sleep(sleep_dur).await;
 
-        if semaphore.available_permits() < { *BURST_AMOUNT.lock() } {
+        let burst_amount = *BURST_AMOUNT.lock().unwrap_or_else(PoisonError::into_inner);
+
+        if semaphore.available_permits() < burst_amount {
             tracing::trace!("adding rate limit permit");
             semaphore.add_permits(1);
         } else {
