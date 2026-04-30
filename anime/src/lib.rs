@@ -36,11 +36,18 @@ pub enum Format {
 }
 
 mod macros {
-    macro_rules! include_from_root {
+    macro_rules! include_str_from_root {
         ($relative_path:expr) => {
             include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/", $relative_path))
         };
     }
 
-    pub(crate) use include_from_root;
+    macro_rules! include_graphql {
+        ($relative_path:expr) => {
+            $crate::macros::include_str_from_root!(concat!("generated/graphql/", $relative_path))
+        };
+    }
+
+    pub(crate) use include_graphql;
+    pub(crate) use include_str_from_root;
 }

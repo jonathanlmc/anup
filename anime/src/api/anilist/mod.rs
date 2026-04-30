@@ -12,7 +12,7 @@ use tap::{Pipe, Tap};
 use crate::{
     MediaID, Title,
     api::{AnimeID, AnimeInfo, Result, Service},
-    macros::include_from_root,
+    macros::include_graphql,
 };
 
 /// AniList API integration.
@@ -30,7 +30,7 @@ impl Service for AniList {
 
         request::send::<MediaItem<AnimeEntry>>(
             client,
-            include_from_root!("graphql/anilist/get_by_id.gql"),
+            include_graphql!("anilist/get_by_id.gql"),
             &json!({ "id": id }),
         )
         .await
@@ -69,7 +69,7 @@ impl Service for AniList {
 
         request::send::<PagedResponse<PagedResponseMediaItems>>(
             client,
-            include_from_root!("graphql/anilist/search_by_name.gql"),
+            include_graphql!("anilist/search_by_name.gql"),
             &json!({ "search": partial_name }),
         )
         .await
@@ -101,7 +101,7 @@ impl Service for AniList {
 
         request::send::<MediaItem<MediaRelations>>(
             client,
-            include_from_root!("graphql/anilist/relations.gql"),
+            include_graphql!("anilist/relations.gql"),
             &json!({ "id": id }),
         )
         .await
