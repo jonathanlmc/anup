@@ -25,7 +25,7 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or(tracing_subscriber::filter::Targets::new().with_default(LevelFilter::ERROR));
 
     tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
         .with(tracing_target)
         .init();
 

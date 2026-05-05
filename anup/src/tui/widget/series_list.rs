@@ -31,9 +31,9 @@ impl<'a> SeriesList<'a> {
     }
 
     fn rendered_single_series_format<'b>(
-        format: anime::Format,
-        season_num: u32,
-        season_data: &'b series::FormatData,
+        format: series::Format,
+        season_num: u16,
+        season_data: &'b series::RemoteSeasonPairing,
     ) -> Line<'b> {
         let mut format_line = Line::default();
 
@@ -42,12 +42,15 @@ impl<'a> SeriesList<'a> {
             Style::default().dark_gray().bold(),
         ));
 
-        match season_data {
-            series::FormatData::Matched { info, .. } => {
+        match &season_data {
+            series::RemoteSeasonPairing::Paired { remote_info, .. } => {
                 // todo: use configured title
-                format_line.push_span(Span::styled(&info.title.romaji, Style::default().gray()));
+                format_line.push_span(Span::styled(
+                    &remote_info.title.romaji,
+                    Style::default().gray(),
+                ));
             }
-            series::FormatData::Unmatched { .. } => {
+            series::RemoteSeasonPairing::Unpaired { .. } => {
                 format_line.push_span(Span::styled(
                     "Unmatched Episodes",
                     Style::default().dark_gray().italic(),
@@ -58,17 +61,16 @@ impl<'a> SeriesList<'a> {
         format_line
     }
 
-    fn format_prefix_str(format: anime::Format, season_num: u32) -> Cow<'static, str> {
-        use anime::Format::*;
+    fn format_prefix_str(format: series::Format, season_num: u16) -> Cow<'static, str> {
+        use series::Format::*;
 
         match format {
-            TV => format!("TV{season_num} ").into(),
+            Tv => format!("TV{season_num} ").into(),
             Special => "SP ".into(),
             Movie => "MV ".into(),
-            ONA => "ONA ".into(),
-            OVA => "OVA ".into(),
+            Ona => "ONA ".into(),
+            Ova => "OVA ".into(),
             Music => "MU ".into(),
-            Other => "UNK ".into(),
         }
     }
 }
@@ -89,12 +91,21 @@ impl<'a> ratatui::widgets::StatefulWidget for SeriesList<'a> {
 
                     let mut style = Style::default();
 
-                    let (color, modifier) = match series.state {
-                        EntryState::Resolved(_) => (Color::Gray, None),
-                        EntryState::Resolving(_) => (Color::Green, None),
-                        EntryState::Detected(_) => (Color::DarkGray, None),
-                        EntryState::Unmatched { .. } => (Color::DarkGray, Some(Modifier::ITALIC)),
-                        EntryState::Failure { .. } => (Color::Red, Some(Modifier::ITALIC)),
+                    let (color, modifier, name) = match &series.state {
+                        EntryState::Detected => (Color::DarkGray, None, "Detected.."),
+                        EntryState::Scanning => {
+                            (Color::DarkGray, Some(Modifier::ITALIC), "Scanning..")
+                        }
+                        EntryState::Resolving(name) => (Color::Green, None, name.as_str()),
+                        EntryState::Resolved(pairing) => (Color::Gray, None, pairing.name.as_str()),
+                        EntryState::Unresolved(local) => (
+                            Color::DarkGray,
+                            Some(Modifier::ITALIC | Modifier::BOLD),
+                            local.parsed_name.as_str(),
+                        ),
+                        EntryState::Failure { name, .. } => {
+                            (Color::Red, Some(Modifier::ITALIC), name.as_str())
+                        }
                     };
 
                     style = style.fg(color);
@@ -103,7 +114,7 @@ impl<'a> ratatui::widgets::StatefulWidget for SeriesList<'a> {
                         style = style.add_modifier(modifier);
                     }
 
-                    Line::styled(series.name(), style)
+                    Line::styled(name, style)
                 });
 
                 (widgets::List::new(items), list_state)
@@ -121,7 +132,7 @@ impl<'a> ratatui::widgets::StatefulWidget for SeriesList<'a> {
                     }
                 };
 
-                let series_data = match entry.series_data() {
+                let series_data = match entry.get_resolved() {
                     Some(data) => data,
                     None => {
                         state.view_state = ViewState::TopLevelSeries(*top_level_series_state);
@@ -129,7 +140,7 @@ impl<'a> ratatui::widgets::StatefulWidget for SeriesList<'a> {
                     }
                 };
 
-                let items = series_data.formats.iter().flat_map(|(format, seasons)| {
+                let items = series_data.pairings.iter().flat_map(|(format, seasons)| {
                     seasons.into_iter().map(|(season, season_data)| {
                         Self::rendered_single_series_format(*format, *season, season_data)
                     })

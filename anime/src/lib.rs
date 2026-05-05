@@ -19,6 +19,17 @@ pub struct Title {
     pub native: String,
 }
 
+impl Title {
+    #[inline]
+    pub fn as_array(&self) -> [Option<&str>; 3] {
+        [
+            self.english.as_deref(),
+            Some(&self.romaji),
+            Some(&self.native),
+        ]
+    }
+}
+
 #[derive(Copy, Clone, Debug, Hash, PartialOrd, Ord, PartialEq, Eq)]
 pub struct MediaID {
     pub anilist: Option<AnimeID>,
@@ -26,11 +37,11 @@ pub struct MediaID {
 
 #[derive(Debug, Copy, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Format {
-    TV,
+    Tv,
     Movie,
     Special,
-    ONA,
-    OVA,
+    Ona,
+    Ova,
     Music,
     Other,
 }

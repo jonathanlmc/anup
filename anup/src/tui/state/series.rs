@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use derive_more::Deref;
 
-use crate::series::Series;
+use crate::series;
 
 #[derive(Debug, Deref)]
 pub struct List(Vec<Entry>);
@@ -50,34 +50,29 @@ pub struct Entry {
 
 #[derive(Debug)]
 pub enum EntryState {
-    Resolved(Series),
+    Detected,
+    Scanning,
     Resolving(String),
-    Detected(Cow<'static, str>),
-    Unmatched {
-        local_series: anime_detect::TopLevelSeries,
-        searched_anime: Vec<anime::Anime>,
-    },
-    Failure {
-        name: String,
-        error: anyhow::Error,
-    },
+    Resolved(series::RootPairing),
+    Unresolved(series::LocalRoot),
+    Failure { name: String, error: EntryError },
 }
 
 impl EntryState {
-    pub fn name(&self) -> &str {
-        match self {
-            Self::Resolved(series) => &series.parsed_local_name,
-            Self::Resolving(name) => name,
-            Self::Detected(name) => name,
-            Self::Unmatched { local_series, .. } => &local_series.parsed_name,
-            Self::Failure { name, .. } => name,
-        }
-    }
-
-    pub fn series_data(&self) -> Option<&Series> {
+    pub fn get_resolved(&self) -> Option<&series::RootPairing> {
         match self {
             Self::Resolved(series) => Some(series),
             _ => None,
         }
     }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum EntryError {
+    #[error(transparent)]
+    ParseError(#[from] series::root::local::ParseError),
+    #[error("{0}")]
+    Panic(Cow<'static, str>),
+    #[error(transparent)]
+    Automatch(#[from] series::automatch::Error),
 }

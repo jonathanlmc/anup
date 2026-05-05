@@ -226,11 +226,11 @@ pub struct NextAiringEpisode {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum SeriesFormat {
-    TV,
+    Tv,
     Movie,
     Special,
-    ONA,
-    OVA,
+    Ona,
+    Ova,
     Music,
     #[serde(other)]
     Other,
@@ -239,11 +239,11 @@ pub enum SeriesFormat {
 impl From<SeriesFormat> for crate::Format {
     fn from(value: SeriesFormat) -> Self {
         match value {
-            SeriesFormat::TV => Self::TV,
+            SeriesFormat::Tv => Self::Tv,
             SeriesFormat::Movie => Self::Movie,
             SeriesFormat::Special => Self::Special,
-            SeriesFormat::ONA => Self::ONA,
-            SeriesFormat::OVA => Self::OVA,
+            SeriesFormat::Ona => Self::Ona,
+            SeriesFormat::Ova => Self::Ova,
             SeriesFormat::Music => Self::Music,
             SeriesFormat::Other => Self::Other,
         }

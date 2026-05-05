@@ -59,9 +59,11 @@ dependencies = [
  "reqwest",
  "strsim",
  "tap",
+ "thiserror",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "walkdir",
 ]
 
 [[package]]

@@ -4,21 +4,28 @@ use anime::api::AnimeInfo;
 use anyhow::Context;
 use indexmap::IndexMap;
 
-use crate::series::{FormatData, SeasonMap, Series};
+use crate::series::{self, episode};
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("api error: {0}")]
+    AnimeApi(#[from] anime::api::Error),
+    #[error("format score for format not in local episode files was stored; this is a bug")]
+    InvalidFormatScoreStored,
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 pub enum AutomatchResult {
-    Matched(Series),
-    None {
-        local_series: anime_detect::TopLevelSeries,
-        searched_anime: Vec<anime::Anime>,
-    },
+    Paired(series::RootPairing),
+    Unpaired(series::LocalRoot),
 }
 
 /// Automatically match all series formats and any continuous seasons within a local
 /// series to one or more anime on a remote service.
 ///
 /// Any episodes that could not be mapped to an anime will be placed into season 0
-/// for their respective format in the returned [`Series`].
+/// for their respective format in the returned [`series::RootPairing`].
 ///
 /// ## Continuous Seasons
 ///
@@ -31,55 +38,46 @@ pub enum AutomatchResult {
 /// For additional context, here is an example of some episode files that contain
 /// a continuous season. Assume each season has 3 episodes:
 ///
-/// * `Title - 01.mkv` -> Start of season 1, or S01E01.
-/// * `Title - 02.mkv` -> S01E02
-/// * `Title - 03.mkv` -> S01E03
-/// * `Title - 04.mkv` -> First episode of season 2. In other words, this is now S02E01.
-/// * `Title - 05.mkv` -> S02E02
-/// * `Title - 06.mkv` -> S02E03
-/// * `Title - 07.mkv` -> First episode of season 3, or S03E01`.
-/// * `Title - 08.mkv` -> S03E02
-/// * `Title - 09.mkv` -> S03E03
+/// * `Title - 01` -> Start of season 1, or S01E01.
+/// * `Title - 02` -> S01E02
+/// * `Title - 03` -> S01E03
+/// * `Title - 04` -> First episode of season 2. In other words, this is now S02E01.
+/// * `Title - 05` -> S02E02
+/// * `Title - 06` -> S02E03
+/// * `Title - 07` -> First episode of season 3, or S03E01.
+/// * `Title - 08` -> S03E02
+/// * `Title - 09` -> S03E03
 pub async fn all_formats_and_seasons<S: anime::api::Service>(
-    local_data: anime_detect::TopLevelSeries,
+    local_series: series::LocalRoot,
     anime_service: &S,
-) -> anyhow::Result<AutomatchResult> {
+) -> Result<AutomatchResult> {
     let searched_anime = anime_service
-        .search_by_name(&crate::REQWEST_CLIENT, &local_data.parsed_name)
+        .search_by_name(&crate::REQWEST_CLIENT, &local_series.parsed_name)
         .await?
-        .map(|anime| (anime.id(), anime.into()))
-        .collect::<HashMap<_, _>>();
+        .map(|info| (info.id(), info.into()))
+        .collect::<IndexMap<_, _>>();
 
-    let scored_formats = ScoredFormats::from_searched_anime(local_data, &searched_anime);
+    let scored_formats = ScoredFormats::from_remote_anime(&local_series, searched_anime.iter());
 
     if scored_formats.is_empty() {
-        return Ok(AutomatchResult::None {
-            local_series: scored_formats.local_data,
-            searched_anime: searched_anime.into_values().collect(),
-        });
+        return Ok(AutomatchResult::Unpaired(local_series));
     }
 
-    let mut pair_details = scored_formats
-        .pair_with_searched_anime(searched_anime, anime_service)
-        .await
-        .context("pairing local series with searched anime failed")?;
+    let series_root = scored_formats
+        .pair_formats_to_new_series_root(local_series, searched_anime, anime_service)
+        .await?;
 
-    pair_details.paired_formats.sort_unstable_keys();
-
-    let series = Series {
-        parsed_local_name: pair_details.parsed_local_name,
-        formats: pair_details.paired_formats,
-        episodes_without_paired_format: pair_details.episodes_without_paired_format,
-    };
-
-    Ok(AutomatchResult::Matched(series))
+    Ok(AutomatchResult::Paired(series_root))
 }
 
-type HighestScore = u32;
+#[derive(Debug)]
+struct ScoredAnimeInfo {
+    score: u32,
+    remote_id: anime::AnimeID,
+}
 
 struct ScoredFormats {
-    scores: HashMap<anime::Format, (HighestScore, anime::AnimeID)>,
-    local_data: anime_detect::TopLevelSeries,
+    best_format_matches: HashMap<series::Format, ScoredAnimeInfo>,
 }
 
 impl ScoredFormats {
@@ -87,9 +85,9 @@ impl ScoredFormats {
     ///
     /// Scores will only be recorded for formats that have a fairly strong (70%)
     /// similarity to one of the provided anime.
-    fn from_searched_anime(
-        local_data: anime_detect::TopLevelSeries,
-        searched_anime: &HashMap<anime::AnimeID, anime::Anime>,
+    fn from_remote_anime<'a>(
+        local_series: &series::LocalRoot,
+        anime_entries: impl Iterator<Item = (&'a anime::AnimeID, &'a anime::Anime)>,
     ) -> Self {
         use std::collections::hash_map::Entry;
 
@@ -97,34 +95,30 @@ impl ScoredFormats {
         const CONFIDENT_SCORE: u32 = 70 * SCORE_SCALE;
         const MATCHING_FORMAT_SCORE_ADJUSTMENT: u32 = 25 * SCORE_SCALE;
 
-        let local_name_lowercase = local_data.parsed_name.to_ascii_lowercase();
-        let mut format_scores = HashMap::with_capacity(local_data.episodes.len());
+        let local_name_lower = local_series.parsed_name.to_ascii_lowercase();
+        let mut format_scores = HashMap::with_capacity(local_series.episodes.len());
 
-        for (anime_id, anime) in searched_anime {
+        for (anime_id, anime_info) in anime_entries {
             // compute similarity score between the local name and searched anime titles
-            let score = [
-                Some(&anime.title.romaji),
-                Some(&anime.title.native),
-                anime.title.english.as_ref(),
-            ]
-            .into_iter()
-            .flatten()
-            .map(|anime_title| {
-                (strsim::jaro(&local_name_lowercase, &anime_title.to_ascii_lowercase())
-                    * 100.
-                    * SCORE_SCALE as f64) as u32
-            })
-            .max()
-            .unwrap_or_default();
+            let score = anime_info
+                .title
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|anime_title| {
+                    (strsim::jaro(&local_name_lower, &anime_title.to_ascii_lowercase())
+                        * 100.
+                        * SCORE_SCALE as f64) as u32
+                })
+                .max()
+                .unwrap_or_default();
 
             // score each series format in the local data by its title & format similarity
             // to the current anime data
             //
             // todo: score by season hint as well
-            for local_format in local_data.episodes.keys().copied().map(Into::into) {
-                let format_score = if let Some(anime_fmt) = anime.format
-                    && anime_fmt == local_format
-                {
+            for local_format in local_series.episodes.keys().copied() {
+                let format_score = if anime_info.format == Some(local_format.into()) {
                     // todo: make adjustable
                     score + MATCHING_FORMAT_SCORE_ADJUSTMENT
                 } else {
@@ -132,9 +126,9 @@ impl ScoredFormats {
                 };
 
                 tracing::trace!(
-                    local_name = %local_data.parsed_name,
-                    anime_titles = ?anime.title,
-                    anime_format = ?anime.format,
+                    local_name = %local_series.parsed_name,
+                    anime_titles = ?anime_info.title,
+                    anime_format = ?anime_info.format,
                     score = %format_score,
                     "computed confidence score for automatch entry"
                 );
@@ -144,98 +138,98 @@ impl ScoredFormats {
                     continue;
                 }
 
-                // store / replace the score the for the format if it's the best one seen yet
-                match format_scores.entry(local_format) {
-                    Entry::Occupied(mut entry) => {
-                        let (score, media_id) = entry.get_mut();
-
-                        if format_score > *score {
-                            tracing::trace!(
-                                local_name = %local_data.parsed_name,
-                                anime_titles = ?anime.title,
-                                anime_format = ?anime.format,
-                                score = %format_score,
-                                old_score = %*score,
-                                "new higher score for automatch entry"
-                            );
-
-                            *media_id = *anime_id;
-                            *score = format_score;
-                        }
-                    }
-                    Entry::Vacant(entry) => {
-                        entry.insert((format_score, *anime_id));
-                    }
-                }
+                Self::store_best_format_entry(
+                    *anime_id,
+                    local_format,
+                    format_score,
+                    &mut format_scores,
+                );
             }
         }
 
         Self {
-            scores: format_scores,
-            local_data,
+            best_format_matches: format_scores,
+        }
+    }
+
+    /// Store the anime entry for the given format, and update the existing entry if the given
+    /// score is better.
+    fn store_best_format_entry(
+        anime_id: anime::AnimeID,
+        local_format: series::Format,
+        score: u32,
+        format_scores: &mut HashMap<series::Format, ScoredAnimeInfo>,
+    ) {
+        use std::collections::hash_map::Entry;
+
+        match format_scores.entry(local_format) {
+            Entry::Occupied(mut entry) => {
+                let entry = entry.get_mut();
+
+                if score > entry.score {
+                    *entry = ScoredAnimeInfo {
+                        score,
+                        remote_id: anime_id,
+                    };
+                }
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(ScoredAnimeInfo {
+                    score,
+                    remote_id: anime_id,
+                });
+            }
         }
     }
 
     /// Returns true if no scores were recorded for any formats.
     fn is_empty(&self) -> bool {
-        self.scores.is_empty()
+        self.best_format_matches.is_empty()
     }
 
     /// Link each scored format with its best matching anime.
     ///
     /// This will resolve any continuous seasons detected in any
     /// of the local series formats as well, and may take a while to complete.
-    async fn pair_with_searched_anime(
+    async fn pair_formats_to_new_series_root(
         mut self,
-        mut searched_anime: HashMap<anime::AnimeID, anime::Anime>,
+        mut local_series: series::LocalRoot,
+        mut anime_entries: IndexMap<anime::AnimeID, anime::Anime>,
         anime_service: &impl anime::api::Service,
-    ) -> anyhow::Result<PairingDetails> {
-        let mut paired_formats = IndexMap::with_capacity(self.scores.len());
+    ) -> Result<series::RootPairing> {
+        let mut series = series::RootPairing::new(local_series.parsed_name);
 
-        for (format, (_, anime_id)) in self.scores {
+        for (format, entry) in self.best_format_matches {
+            let anime_id = entry.remote_id;
+
             // each format should only be able to reference one unique series
-            let Some(anime) = searched_anime.remove(&anime_id) else {
+            let Some(anime) = anime_entries.swap_remove(&anime_id) else {
                 tracing::debug!(
                     ?format,
                     %anime_id,
+                    local_name = %series.name,
                     "encountered duplicate anime for format; not pairing format to any anime series"
                 );
 
                 continue;
             };
 
-            let Some(episodes) = self.local_data.episodes.remove(&format.into()) else {
-                anyhow::bail!(
-                    "stored a format score for a format not contained in local episode files; this is a bug"
-                );
-            };
+            let episodes = local_series
+                .episodes
+                .remove(&format)
+                .ok_or(Error::InvalidFormatScoreStored)?;
 
-            let mut resolved_seasons = SeasonMap::with_capacity(1);
+            let resolved_seasons =
+                pair_local_episodes_to_remote_seasons(anime_id, anime, episodes, anime_service)
+                    .await?;
 
-            pair_anime_seasons_from_local_episodes(
-                anime_id,
-                anime,
-                episodes,
-                &mut resolved_seasons,
-                anime_service,
-            )
-            .await?;
-
-            paired_formats.insert(format, resolved_seasons);
+            series.pairings.insert(format, resolved_seasons);
         }
 
-        Ok(PairingDetails {
-            parsed_local_name: self.local_data.parsed_name,
-            paired_formats,
-            episodes_without_paired_format: self.local_data.episodes,
-        })
-    }
-}
+        series.pairings.sort_unstable_keys();
 
-struct PairingDetails {
-    parsed_local_name: String,
-    paired_formats: IndexMap<anime::Format, SeasonMap>,
-    episodes_without_paired_format: HashMap<anime_detect::series::Format, anime_detect::EpisodeSet>,
+        Ok(series)
+    }
 }
 
 /// Link a local set of episodes to an anime season, and resolve any
@@ -245,14 +239,13 @@ struct PairingDetails {
 ///
 /// If any extra episodes are present that do not map to a season, they will
 /// be inserted into season 0 within the map.
-async fn pair_anime_seasons_from_local_episodes(
+async fn pair_local_episodes_to_remote_seasons(
     anime_id: anime::AnimeID,
     anime: anime::Anime,
-    mut episodes: anime_detect::EpisodeSet,
-    resolved_seasons: &mut SeasonMap,
+    mut episodes: episode::Set,
     anime_service: &impl anime::api::Service,
-) -> anyhow::Result<bool> {
-    let highest_episode_num = episodes.iter().map(|ep| ep.number).max().unwrap_or(0);
+) -> Result<series::root::SeasonMap> {
+    let highest_episode_num = episodes.iter().map(|ep| ep.info.number).max().unwrap_or(0);
 
     // calculate an episode offset if the highest episode number exceeds
     // the provided anime's episode count
@@ -263,36 +256,38 @@ async fn pair_anime_seasons_from_local_episodes(
         .and_then(|season_eps| (highest_episode_num > season_eps).then_some(season_eps));
 
     let mut season_num = 1;
+    let mut season_map = series::root::SeasonMap::with_capacity(1);
 
     // fast path: if no episode offset was calculated, we can assume there is
     // no continuous season and return all episodes as the first season
     let Some(mut episode_offset) = episode_offset else {
-        resolved_seasons.insert(
+        season_map.insert(
             season_num,
-            FormatData::Matched {
-                info: anime,
-                episodes,
+            series::RemoteSeasonPairing::Paired {
+                remote_info: anime,
+                local_episodes: episodes,
+                unpaired_local_episodes: Default::default(),
                 in_sync: false,
             },
         );
 
-        return Ok(false);
+        return Ok(season_map);
     };
 
     // otherwise, find all episodes *within* the first season
     // for the first resolved season
-    resolved_seasons.insert(
+    season_map.insert(
         season_num,
-        FormatData::Matched {
-            info: anime,
-            episodes: episodes
-                .extract_if(|ep| ep.number <= episode_offset)
+        series::RemoteSeasonPairing::Paired {
+            remote_info: anime,
+            local_episodes: episodes
+                .extract_if(|ep| ep.info.number <= episode_offset)
                 .collect(),
+            unpaired_local_episodes: Default::default(),
             in_sync: false,
         },
     );
 
-    let mut any_season_missing = false;
     let mut current_sequel = anime_id;
 
     // now loop over each sequel to the first series and extract
@@ -305,8 +300,12 @@ async fn pair_anime_seasons_from_local_episodes(
             .get_by_id(&crate::REQWEST_CLIENT, sequel_id)
             .await?
         else {
-            tracing::warn!("found a series sequel, but its anime id does not exist");
-            any_season_missing = true;
+            tracing::warn!(
+                root_anime_id = %anime_id,
+                %sequel_id,
+                "found a series sequel, but its anime id does not exist"
+            );
+
             break;
         };
 
@@ -320,10 +319,10 @@ async fn pair_anime_seasons_from_local_episodes(
 
         let sequel_episodes = episodes
             .extract_if(|ep| {
-                let offset_ep = ep.number.saturating_sub(episode_offset);
+                let offset_ep = ep.info.number.saturating_sub(episode_offset);
                 offset_ep <= num_sequel_eps.unwrap_or(offset_ep)
             })
-            .collect::<anime_detect::EpisodeSet>();
+            .collect::<episode::Set>();
 
         if sequel_episodes.is_empty() {
             // more episodes remaining indicates that there is likely a gap
@@ -349,11 +348,12 @@ async fn pair_anime_seasons_from_local_episodes(
             break;
         }
 
-        resolved_seasons.insert(
+        season_map.insert(
             season_num,
-            FormatData::Matched {
-                info: sequel,
-                episodes: sequel_episodes,
+            series::RemoteSeasonPairing::Paired {
+                remote_info: sequel,
+                local_episodes: sequel_episodes,
+                unpaired_local_episodes: Default::default(),
                 in_sync: false,
             },
         );
@@ -363,8 +363,8 @@ async fn pair_anime_seasons_from_local_episodes(
 
     // any remaining episodes can go in to a "special" season 0 since all matched seasons start at 1
     if !episodes.is_empty() {
-        resolved_seasons.insert(0, FormatData::Unmatched { episodes });
+        season_map.insert(0, series::RemoteSeasonPairing::Unpaired(episodes));
     }
 
-    Ok(any_season_missing)
+    Ok(season_map)
 }
