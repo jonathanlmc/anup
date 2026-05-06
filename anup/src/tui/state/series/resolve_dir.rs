@@ -11,10 +11,7 @@ use crate::{
     },
 };
 
-pub async fn scan_and_resolve_all_in_dir(
-    event_chan: event::EventSender,
-    dir: PathBuf,
-) -> anyhow::Result<()> {
+pub async fn resolve_all(event_chan: event::EventSender, dir: PathBuf) -> anyhow::Result<()> {
     const MAX_BUFFERED_DETECTIONS: usize = 10;
     const MAX_CONCURRENT_RESOLVES: usize = 3;
 

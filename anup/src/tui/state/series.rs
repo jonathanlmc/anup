@@ -1,3 +1,5 @@
+pub mod resolve_dir;
+
 use std::borrow::Cow;
 
 use derive_more::Deref;

@@ -2,7 +2,6 @@ pub mod state;
 
 mod event;
 mod panel;
-mod task;
 mod widget;
 
 use std::sync::Arc;
@@ -40,7 +39,7 @@ impl App {
 
         let app_events = EventsChannel::new(64);
 
-        tokio::spawn(task::series::scan_and_resolve_all_in_dir(
+        tokio::spawn(state::series::resolve_dir::resolve_all(
             app_events.new_sender(),
             state.series_scan_dir.clone(),
         ));
