@@ -34,27 +34,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "anime_detect"
-version = "0.1.0"
-dependencies = [
- "anime",
- "tap",
- "thiserror",
- "tracing",
- "winnow",
-]
-
-[[package]]
 name = "anup"
 version = "0.1.0"
 dependencies = [
  "anime",
- "anime_detect",
  "anyhow",
  "crossterm",
  "derive_more",
  "futures",
  "indexmap 2.14.0",
+ "medinpar",
  "ratatui",
  "reqwest",
  "strsim",
@@ -995,6 +984,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f66e8d5d03f609abc3a39e6f08e4164ebf1447a732906d39eb9b99b7919ef39"
 dependencies = [
  "hashbrown 0.16.1",
+]
+
+[[package]]
+name = "medinpar"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "436eedb467ebab9f791998e4983531c70c9f0a922622897a93f2cfdc6ff46e7b"
+dependencies = [
+ "thiserror",
+ "winnow",
 ]
 
 [[package]]
@@ -2415,9 +2414,6 @@ name = "winnow"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ee1708bef14716a11bae175f579062d4554d95be2c6829f518df847b7b3fdd0"
-dependencies = [
- "memchr",
-]
 
 [[package]]
 name = "wit-bindgen"

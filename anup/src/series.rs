@@ -10,8 +10,8 @@ use indexmap::IndexMap;
 
 use std::collections::HashMap;
 
-type LocalSeriesInfo<'a> = anime_detect::Series<'a>;
-type LocalEpisodeInfo = anime_detect::Episode<Format>;
+type LocalSeriesInfo<'a> = medinpar::Series<'a>;
+type LocalEpisodeInfo = medinpar::Episode<Format>;
 
 #[derive(Debug, Copy, Clone, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Format {
@@ -24,7 +24,7 @@ pub enum Format {
     Music,
 }
 
-impl anime_detect::Format for Format {
+impl medinpar::Format for Format {
     const VARIANT_MAPPINGS: &[(&'static str, Self)] = &[
         ("tv", Self::Tv),
         ("special", Self::Special),

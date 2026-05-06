@@ -63,10 +63,9 @@ impl Episode {
             .to_str()
             .ok_or(ParseError::InvalidUtf8)?;
 
-        let parsed =
-            LocalEpisodeInfo::parse_with_known_filename(stem).map_err(|err| match err {
-                anime_detect::Error::Unmatched => ParseError::Unmatched,
-            })?;
+        let parsed = LocalEpisodeInfo::parse(stem).map_err(|err| match err {
+            medinpar::Error::Unmatched => ParseError::Unmatched,
+        })?;
 
         Ok(Self {
             info: parsed,

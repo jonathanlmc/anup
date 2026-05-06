@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["anime", "anime_detect", "anup"]
+members = ["anime", "anup"]
 
 [workspace.package]
 license = "AGPL-3.0-only"
