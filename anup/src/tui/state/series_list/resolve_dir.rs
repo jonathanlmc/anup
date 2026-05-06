@@ -7,7 +7,10 @@ use crate::{
     series,
     tui::{
         event::{self, AppEvent},
-        state::{self, series::EntryState},
+        state::{
+            self,
+            series_list::{EntryState, Event},
+        },
     },
 };
 
@@ -60,11 +63,9 @@ pub async fn resolve_all(event_chan: event::EventSender, dir: PathBuf) -> anyhow
         };
 
         let inserted_series_index = event_chan
-            .send_with_reply(|reply_tx| {
-                AppEvent::Series(event::series::Payload::Create {
-                    state: EntryState::Detected,
-                    stable_index_reply: reply_tx,
-                })
+            .send_with_reply(|reply_tx| Event::Create {
+                state: EntryState::Detected,
+                stable_index_reply: reply_tx,
             })
             .await
             .context("application event channel was closed")?;
@@ -116,10 +117,13 @@ async fn resolve_new_series(
     inserted_series_index: usize,
 ) -> anyhow::Result<()> {
     event_chan
-        .send(AppEvent::Series(event::series::Payload::Update {
-            stable_index: inserted_series_index,
-            state: EntryState::Scanning,
-        }))
+        .send(
+            Event::Update {
+                stable_index: inserted_series_index,
+                state: EntryState::Scanning,
+            }
+            .into(),
+        )
         .await?;
 
     let local_series = 'blk: {
@@ -139,7 +143,7 @@ async fn resolve_new_series(
                     "unknown".into()
                 };
 
-                state::series::EntryError::Panic(msg)
+                state::series_list::EntryError::Panic(msg)
             }
             Err(err) => {
                 tracing::trace!(%filename, "received cancel signal for series resolve");
@@ -150,23 +154,29 @@ async fn resolve_new_series(
         let failure_msg = format!("{entry_error}");
 
         event_chan
-            .send(AppEvent::Series(event::series::Payload::Update {
-                stable_index: inserted_series_index,
-                state: EntryState::Failure {
-                    name: filename,
-                    error: entry_error,
-                },
-            }))
+            .send(
+                Event::Update {
+                    stable_index: inserted_series_index,
+                    state: EntryState::Failure {
+                        name: filename,
+                        error: entry_error,
+                    },
+                }
+                .into(),
+            )
             .await?;
 
         anyhow::bail!(failure_msg);
     };
 
     event_chan
-        .send(AppEvent::Series(event::series::Payload::Update {
-            stable_index: inserted_series_index,
-            state: EntryState::Resolving(local_series.parsed_name.clone()),
-        }))
+        .send(
+            Event::Update {
+                stable_index: inserted_series_index,
+                state: EntryState::Resolving(local_series.parsed_name.clone()),
+            }
+            .into(),
+        )
         .await?;
 
     let local_name = local_series.parsed_name.clone();
@@ -179,10 +189,13 @@ async fn resolve_new_series(
         Ok(series::AutomatchResult::Paired(series)) => series,
         Ok(series::AutomatchResult::Unpaired(local_series)) => {
             event_chan
-                .send(AppEvent::Series(event::series::Payload::Update {
-                    stable_index: inserted_series_index,
-                    state: EntryState::Unresolved(local_series),
-                }))
+                .send(
+                    Event::Update {
+                        stable_index: inserted_series_index,
+                        state: EntryState::Unresolved(local_series),
+                    }
+                    .into(),
+                )
                 .await?;
 
             return Ok(());
@@ -192,13 +205,16 @@ async fn resolve_new_series(
             let failure_msg = format!("{err}");
 
             event_chan
-                .send(AppEvent::Series(event::series::Payload::Update {
-                    stable_index: inserted_series_index,
-                    state: EntryState::Failure {
-                        name: local_name,
-                        error: err,
-                    },
-                }))
+                .send(
+                    Event::Update {
+                        stable_index: inserted_series_index,
+                        state: EntryState::Failure {
+                            name: local_name,
+                            error: err,
+                        },
+                    }
+                    .into(),
+                )
                 .await
                 .ok();
 
@@ -207,10 +223,13 @@ async fn resolve_new_series(
     };
 
     event_chan
-        .send(AppEvent::Series(event::series::Payload::Update {
-            stable_index: inserted_series_index,
-            state: EntryState::Resolved(series),
-        }))
+        .send(
+            Event::Update {
+                stable_index: inserted_series_index,
+                state: EntryState::Resolved(series),
+            }
+            .into(),
+        )
         .await
         .ok();
 

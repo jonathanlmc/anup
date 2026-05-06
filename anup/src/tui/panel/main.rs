@@ -55,7 +55,7 @@ impl Panel for MainPanel {
 
     fn render(&mut self, frame: &mut ratatui::Frame, state: &tui::AppState) {
         let series_tree =
-            SeriesList::new(&state.series).block(Block::bordered().title("Series List"));
+            SeriesList::new(&state.series_list).block(Block::bordered().title("Series List"));
 
         frame.render_stateful_widget(series_tree, frame.area(), &mut self.series_list_state);
     }

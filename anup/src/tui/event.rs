@@ -1,5 +1,3 @@
-pub mod series;
-
 use tap::TapFallible;
 use tokio::sync::{mpsc, oneshot};
 
@@ -9,7 +7,7 @@ use crate::tui;
 pub enum AppEvent {
     #[from]
     Terminal(crossterm::event::Event),
-    Series(series::Payload),
+    SeriesList(tui::state::series_list::Event),
 }
 
 impl AppEvent {
@@ -25,8 +23,8 @@ impl AppEvent {
             Self::Terminal(event) => {
                 Self::process_terminal_event(event, state, panel, render_trigger).await
             }
-            Self::Series(payload) => {
-                series::process(payload, state, render_trigger).await;
+            Self::SeriesList(event) => {
+                state.series_list.process_event(event, render_trigger).await;
                 Result::Continue
             }
         }
@@ -85,13 +83,13 @@ impl EventsChannel {
 pub struct EventSender(mpsc::Sender<AppEvent>);
 
 impl EventSender {
-    pub async fn send_with_reply<T>(
+    pub async fn send_with_reply<T, R: Into<AppEvent>>(
         &self,
-        payload_fn: impl FnOnce(oneshot::Sender<T>) -> AppEvent,
+        payload_fn: impl FnOnce(oneshot::Sender<T>) -> R,
     ) -> Option<T> {
         let (tx, rx) = oneshot::channel();
 
-        if let Err(err) = self.0.send(payload_fn(tx)).await {
+        if let Err(err) = self.0.send(payload_fn(tx).into()).await {
             tracing::error!(?err, "event channel was closed");
         }
 

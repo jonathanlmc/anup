@@ -36,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
     tui::App::init(
         tui::AppState {
             series_scan_dir: path.into(),
-            series: state::series::List::new(),
+            series_list: state::SeriesList::new(),
         },
         &mut root_panel,
     )?

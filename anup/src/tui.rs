@@ -36,7 +36,7 @@ impl<'a> App<'a> {
 
         let app_events = EventsChannel::new(64);
 
-        tokio::spawn(state::series::resolve_dir::resolve_all(
+        tokio::spawn(state::series_list::resolve_dir::resolve_all(
             app_events.new_sender(),
             state.series_scan_dir.clone(),
         ));

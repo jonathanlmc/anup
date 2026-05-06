@@ -13,12 +13,12 @@ use crate::{
 };
 
 pub struct SeriesList<'a> {
-    series: &'a [tui::state::series::Entry],
+    series: &'a [tui::state::series_list::Entry],
     block: Option<Block<'a>>,
 }
 
 impl<'a> SeriesList<'a> {
-    pub fn new(series: &'a [tui::state::series::Entry]) -> Self {
+    pub fn new(series: &'a [tui::state::series_list::Entry]) -> Self {
         Self {
             series,
             block: None,
@@ -87,7 +87,7 @@ impl<'a> ratatui::widgets::StatefulWidget for SeriesList<'a> {
         let (mut list, list_state) = match &mut state.view_state {
             ViewState::TopLevelSeries(list_state) => {
                 let items = self.series.iter().map(|series| {
-                    use state::series::EntryState;
+                    use state::series_list::EntryState;
 
                     let mut style = Style::default();
 

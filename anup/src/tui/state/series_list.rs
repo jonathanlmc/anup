@@ -4,12 +4,12 @@ use std::borrow::Cow;
 
 use derive_more::Deref;
 
-use crate::series;
+use crate::{series, tui};
 
 #[derive(Debug, Deref)]
-pub struct List(Vec<Entry>);
+pub struct SeriesList(Vec<Entry>);
 
-impl List {
+impl SeriesList {
     pub fn new() -> Self {
         Self(Vec::new())
     }
@@ -38,6 +38,27 @@ impl List {
         }
 
         false
+    }
+
+    pub async fn process_event(&mut self, event: Event, render_trigger: &tui::RenderTrigger) {
+        match event {
+            Event::Create {
+                state,
+                stable_index_reply,
+            } => {
+                let inserted_index = self.push(state);
+                stable_index_reply.send(inserted_index).ok();
+                render_trigger.notify_one();
+            }
+            Event::Update {
+                stable_index,
+                state,
+            } => {
+                if self.set(stable_index, state) {
+                    render_trigger.notify_one();
+                }
+            }
+        }
     }
 }
 
@@ -77,4 +98,22 @@ pub enum EntryError {
     Panic(Cow<'static, str>),
     #[error(transparent)]
     Automatch(#[from] series::automatch::Error),
+}
+
+#[derive(Debug)]
+pub enum Event {
+    Create {
+        state: EntryState,
+        stable_index_reply: tokio::sync::oneshot::Sender<usize>,
+    },
+    Update {
+        stable_index: usize,
+        state: EntryState,
+    },
+}
+
+impl From<Event> for tui::AppEvent {
+    fn from(value: Event) -> Self {
+        Self::SeriesList(value)
+    }
 }
