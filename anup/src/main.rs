@@ -31,10 +31,15 @@ async fn main() -> anyhow::Result<()> {
 
     let path = std::env::args().nth(1).context("missing path arg")?;
 
-    tui::App::init(tui::AppState {
-        series_scan_dir: path.into(),
-        series: state::series::List::new(),
-    })?
+    let mut root_panel = tui::panel::MainPanel::new();
+
+    tui::App::init(
+        tui::AppState {
+            series_scan_dir: path.into(),
+            series: state::series::List::new(),
+        },
+        &mut root_panel,
+    )?
     .run()
     .await;
 

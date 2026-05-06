@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::widgets::Block;
 
 use crate::tui::{
@@ -25,12 +25,15 @@ impl Panel for MainPanel {
         event: KeyEvent,
         _state: &mut tui::AppState,
         render_trigger: &tui::RenderTrigger,
-    ) {
+    ) -> tui::event::Result {
         if !event.is_press() {
-            return;
+            return tui::event::Result::Continue;
         }
 
         match event.code {
+            KeyCode::Char('Q') if event.modifiers.contains(KeyModifiers::SHIFT) => {
+                return tui::event::Result::Quit;
+            }
             KeyCode::Char('s' | 'S') | KeyCode::Down => {
                 self.series_list_state.select_next();
             }
@@ -47,6 +50,7 @@ impl Panel for MainPanel {
         }
 
         render_trigger.notify_one();
+        tui::event::Result::Continue
     }
 
     fn render(&mut self, frame: &mut ratatui::Frame, state: &tui::AppState) {

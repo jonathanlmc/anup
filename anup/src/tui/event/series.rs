@@ -12,7 +12,7 @@ pub enum Payload {
     },
 }
 
-pub(super) async fn process(
+pub async fn process(
     payload: Payload,
     app_state: &mut tui::AppState,
     render_trigger: &tui::RenderTrigger,

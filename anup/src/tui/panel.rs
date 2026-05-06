@@ -11,7 +11,9 @@ pub trait Panel {
         event: KeyEvent,
         state: &mut tui::AppState,
         render_trigger: &tui::RenderTrigger,
-    );
+    ) -> tui::event::Result {
+        tui::event::Result::Continue
+    }
 
     fn render(&mut self, frame: &mut ratatui::Frame, state: &tui::AppState);
 }
