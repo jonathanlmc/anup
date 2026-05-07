@@ -8,50 +8,106 @@ pub enum AppEvent {
     #[from]
     Terminal(crossterm::event::Event),
     SeriesList(tui::state::series_list::Event),
+    LogMessage(String),
+    PushPanel(Box<dyn tui::Panel>),
+    PopPanel,
 }
 
 impl AppEvent {
     pub async fn process(
         self,
-        state: &mut tui::AppState,
-        panel: &mut dyn tui::Panel,
+        info: &mut tui::state::Info,
+        state: &mut tui::State,
+        panel_stack: &mut tui::panel::Stack,
         render_trigger: &tui::RenderTrigger,
     ) -> Result {
-        tracing::trace!(?self, "processing application event");
+        // don't log log message events, as it could put us in an infinite loop if the user
+        // is actively viewing them
+        if tracing::enabled!(tracing::Level::TRACE) && !matches!(self, Self::LogMessage(_)) {
+            tracing::trace!(?self, "processing application event");
+        }
 
-        match self {
+        let (result, notif_event) = match self {
             Self::Terminal(event) => {
-                Self::process_terminal_event(event, state, panel, render_trigger).await
+                Self::process_terminal_event(
+                    event,
+                    info,
+                    state,
+                    panel_stack.current(),
+                    render_trigger,
+                )
+                .await
             }
             Self::SeriesList(event) => {
                 state.series_list.process_event(event, render_trigger).await;
-                Result::Continue
+                (Result::Continue(None), None)
             }
+            Self::LogMessage(msg) => {
+                if state.log_message_buffer.len() >= tui::MAX_LOG_MESSAGES {
+                    state.log_message_buffer.pop_front();
+                }
+
+                state.log_message_buffer.push_back(msg);
+
+                (
+                    Result::Continue(None),
+                    Some(AppEventNotification::LogMessage),
+                )
+            }
+            Self::PushPanel(new_panel) => {
+                panel_stack.push(new_panel);
+                render_trigger.notify_one();
+                (Result::Continue(None), None)
+            }
+            Self::PopPanel => {
+                panel_stack.pop();
+                render_trigger.notify_one();
+                (Result::Continue(None), None)
+            }
+        };
+
+        if let Some(notif_event) = notif_event {
+            // the current panel may have changed; fetch it again
+            panel_stack.current().process_event_notification(
+                notif_event,
+                info,
+                state,
+                render_trigger,
+            );
         }
+
+        result
     }
 
     async fn process_terminal_event(
         event: crossterm::event::Event,
-        state: &mut tui::AppState,
+        info: &mut tui::state::Info,
+        state: &mut tui::State,
         panel: &mut dyn tui::Panel,
         render_trigger: &tui::RenderTrigger,
-    ) -> Result {
+    ) -> (Result, Option<AppEventNotification>) {
         use crossterm::event::Event;
 
         match event {
-            Event::Resize(_, _) => {
+            Event::Resize(width, height) => {
+                info.size = ratatui::layout::Size { width, height };
                 render_trigger.notify_one();
-                Result::Continue
+
+                (Result::Continue(None), None)
             }
-            Event::Key(key) => panel.process_input(key, state, render_trigger),
-            _ => Result::Continue,
+            Event::Key(key) => (panel.process_input(key, info, state, render_trigger), None),
+            _ => (Result::Continue(None), None),
         }
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Debug)]
+pub enum AppEventNotification {
+    LogMessage,
+}
+
 pub enum Result {
-    Continue,
+    Continue(Option<AppEvent>),
     Quit,
 }
 

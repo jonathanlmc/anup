@@ -1,17 +1,17 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::widgets::Block;
 
 use crate::tui::{
     self,
-    panel::Panel,
-    widget::series_list::{self, SeriesList},
+    widget::{SeriesList, series_list},
 };
 
-pub struct MainPanel {
+#[derive(Debug)]
+pub struct Main {
     series_list_state: series_list::State,
 }
 
-impl MainPanel {
+impl Main {
     pub fn new() -> Self {
         Self {
             series_list_state: series_list::State::new(),
@@ -19,19 +19,20 @@ impl MainPanel {
     }
 }
 
-impl Panel for MainPanel {
+impl tui::Panel for Main {
     fn process_input(
         &mut self,
         event: KeyEvent,
-        _state: &mut tui::AppState,
+        _info: &tui::state::Info,
+        _state: &mut tui::State,
         render_trigger: &tui::RenderTrigger,
     ) -> tui::event::Result {
         if !event.is_press() {
-            return tui::event::Result::Continue;
+            return tui::event::Result::Continue(None);
         }
 
         match event.code {
-            KeyCode::Char('Q') if event.modifiers.contains(KeyModifiers::SHIFT) => {
+            KeyCode::Esc => {
                 return tui::event::Result::Quit;
             }
             KeyCode::Char('s' | 'S') | KeyCode::Down => {
@@ -46,14 +47,19 @@ impl Panel for MainPanel {
             KeyCode::Char('a' | 'A') | KeyCode::Left => {
                 self.series_list_state.select_top_level_series();
             }
-            _ => (),
+            KeyCode::Char('~') => {
+                let panel = Box::new(tui::panel::Log::new());
+                let event = tui::AppEvent::PushPanel(panel);
+                return tui::event::Result::Continue(Some(event));
+            }
+            _ => return tui::event::Result::Continue(None),
         }
 
         render_trigger.notify_one();
-        tui::event::Result::Continue
+        tui::event::Result::Continue(None)
     }
 
-    fn render(&mut self, frame: &mut ratatui::Frame, state: &tui::AppState) {
+    fn render(&mut self, frame: &mut ratatui::Frame, state: &tui::State) {
         let series_tree =
             SeriesList::new(&state.series_list).block(Block::bordered().title("Series List"));
 

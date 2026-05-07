@@ -172,6 +172,7 @@ impl<'a> ratatui::widgets::StatefulWidget for SeriesList<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct State {
     pub view_state: ViewState,
 }
@@ -243,6 +244,7 @@ impl State {
     }
 }
 
+#[derive(Debug)]
 pub enum ViewState {
     TopLevelSeries(ListState),
     SingleSeriesFormats {
@@ -252,7 +254,7 @@ pub enum ViewState {
     },
 }
 
-#[derive(Copy, Clone, Default, Deref, DerefMut)]
+#[derive(Copy, Clone, Debug, Default, Deref, DerefMut)]
 pub struct ListState {
     /// `ratatui` uses a `usize` for its `ListState` selection index,
     /// so we need a way to know when the index needs to wrap
