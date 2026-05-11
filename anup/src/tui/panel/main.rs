@@ -1,5 +1,8 @@
 use crossterm::event::{KeyCode, KeyEvent};
-use ratatui::widgets::Block;
+use ratatui::{
+    layout::{Constraint, Layout},
+    widgets::Block,
+};
 
 use crate::tui::{
     self,
@@ -8,13 +11,13 @@ use crate::tui::{
 
 #[derive(Debug)]
 pub struct Main {
-    series_list_state: series_list::State,
+    series_list_state: series_list::ViewState,
 }
 
 impl Main {
     pub fn new() -> Self {
         Self {
-            series_list_state: series_list::State::new(),
+            series_list_state: series_list::ViewState::new(),
         }
     }
 }
@@ -45,7 +48,7 @@ impl tui::Panel for Main {
                 self.series_list_state.select_series_formats();
             }
             KeyCode::Char('a' | 'A') | KeyCode::Left => {
-                self.series_list_state.select_top_level_series();
+                self.series_list_state.select_root_series();
             }
             KeyCode::Char('~') => {
                 let panel = Box::new(tui::panel::Log::new());
@@ -60,9 +63,25 @@ impl tui::Panel for Main {
     }
 
     fn render(&mut self, frame: &mut ratatui::Frame, state: &tui::State) {
-        let series_tree =
-            SeriesList::new(&state.series_list).block(Block::bordered().title("Series List"));
+        let [left_area, right_area] =
+            Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)])
+                .areas(frame.area());
 
-        frame.render_stateful_widget(series_tree, frame.area(), &mut self.series_list_state);
+        let series_tree = {
+            let frame_state = self.series_list_state.frame_state(&state.series_list);
+
+            let title = match frame_state.data() {
+                series_list::FrameData::RootSeries { .. } => "Series List",
+                series_list::FrameData::SeriesFormats { .. } => "Series Format Selection",
+            };
+
+            SeriesList::new(frame_state).block(Block::bordered().title(title))
+        };
+
+        frame.render_widget(series_tree, left_area);
+
+        let info_panel = Block::bordered().title("Info");
+
+        frame.render_widget(info_panel, right_area);
     }
 }

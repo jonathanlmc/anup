@@ -1,26 +1,30 @@
 use std::borrow::Cow;
 
-use derive_more::{Deref, DerefMut};
 use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{self, Block, StatefulWidget},
+    widgets::{self, Block, ListState, StatefulWidget},
 };
 
-use crate::{
-    series,
-    tui::{self, state},
-};
+use crate::{series, tui::state};
 
+/// List many series, or the formats of one.
+///
+/// Selection and listing options can be controlled by persisting a [`ViewState`]
+/// and calling its associated methods when appropriate.
 pub struct SeriesList<'a> {
-    series: &'a [tui::state::series_list::Entry],
+    frame_state: FrameViewState<'a>,
     block: Option<Block<'a>>,
 }
 
 impl<'a> SeriesList<'a> {
-    pub fn new(series: &'a [tui::state::series_list::Entry]) -> Self {
+    /// Create a new series list.
+    ///
+    /// The state for the current frame can be obtained from the persisted [`ViewState`] by
+    /// calling its [`ViewState::frame_state`] method.
+    pub fn new(frame_state: FrameViewState<'a>) -> Self {
         Self {
-            series,
+            frame_state,
             block: None,
         }
     }
@@ -75,18 +79,11 @@ impl<'a> SeriesList<'a> {
     }
 }
 
-impl<'a> ratatui::widgets::StatefulWidget for SeriesList<'a> {
-    type State = State;
-
-    fn render(
-        self,
-        area: ratatui::prelude::Rect,
-        buf: &mut ratatui::prelude::Buffer,
-        state: &mut Self::State,
-    ) {
-        let (mut list, list_state) = match &mut state.view_state {
-            ViewState::TopLevelSeries(list_state) => {
-                let items = self.series.iter().map(|series| {
+impl<'a> ratatui::widgets::Widget for SeriesList<'a> {
+    fn render(mut self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
+        let mut list = match self.frame_state.data {
+            FrameData::RootSeries { series_list, .. } => {
+                let items = series_list.iter().map(|series| {
                     use state::series_list::EntryState;
 
                     let mut style = Style::default();
@@ -117,48 +114,34 @@ impl<'a> ratatui::widgets::StatefulWidget for SeriesList<'a> {
                     Line::styled(name, style)
                 });
 
-                (widgets::List::new(items), list_state)
+                widgets::List::new(items)
             }
-            ViewState::SingleSeriesFormats {
-                selected_series,
-                current_list_state,
-                top_level_series_state,
-            } => {
-                let entry = match self.series.get(*selected_series) {
-                    Some(entry) => entry,
-                    None => {
-                        state.view_state = ViewState::TopLevelSeries(*top_level_series_state);
-                        return self.render(area, buf, state);
-                    }
-                };
-
-                let series_data = match entry.get_resolved() {
-                    Some(data) => data,
-                    None => {
-                        state.view_state = ViewState::TopLevelSeries(*top_level_series_state);
-                        return self.render(area, buf, state);
-                    }
-                };
-
+            FrameData::SeriesFormats { series_data, .. } => {
                 let items = series_data.pairings.iter().flat_map(|(format, seasons)| {
                     seasons.into_iter().map(|(season, season_data)| {
                         Self::rendered_single_series_format(*format, *season, season_data)
                     })
                 });
 
-                (widgets::List::new(items), current_list_state)
+                widgets::List::new(items)
             }
         };
 
-        // wrap the list selection index around the top or bottom
-        if list_state.wrap_to_last {
-            list_state.select_last();
-            list_state.wrap_to_last = false;
-        } else if let Some(sel_idx) = list_state.selected()
-            && sel_idx >= list.len()
-        {
-            list_state.select_first();
-        }
+        let mut list_state = {
+            let mut list_state = ListState::default();
+            let selected_index = self.frame_state.selected_index_mut();
+
+            if let Some(idx) = selected_index {
+                // wrap the list selection index around the top or bottom
+                let len = list.len().min(i32::MAX as usize) as i32;
+                let rem = *idx % len;
+                *idx = if rem < 0 { rem + len } else { rem };
+
+                list_state.select(Some(*idx as usize));
+            }
+
+            list_state
+        };
 
         if let Some(block) = self.block {
             list = list.block(block);
@@ -168,108 +151,169 @@ impl<'a> ratatui::widgets::StatefulWidget for SeriesList<'a> {
             .highlight_symbol(Line::styled(">", Style::default().light_cyan()))
             .highlight_style(Style::default().bold());
 
-        StatefulWidget::render(list, area, buf, list_state);
-    }
-}
-
-#[derive(Debug)]
-pub struct State {
-    pub view_state: ViewState,
-}
-
-impl State {
-    pub fn new() -> Self {
-        Self {
-            view_state: ViewState::TopLevelSeries(ListState::default()),
-        }
-    }
-
-    pub fn select_series_formats(&mut self) {
-        match &mut self.view_state {
-            ViewState::TopLevelSeries(existing_state) => {
-                let selected_series = match existing_state.selected_mut() {
-                    Some(idx) => *idx,
-                    // ensure there's a selected series, since we'll be viewing
-                    // the formats of one (which implies selection)
-                    sel_val @ None => {
-                        *sel_val = Some(0);
-                        0
-                    }
-                };
-
-                let mut new_state = widgets::ListState::default();
-                new_state.select(Some(0));
-
-                self.view_state = ViewState::SingleSeriesFormats {
-                    selected_series,
-                    current_list_state: new_state.into(),
-                    top_level_series_state: *existing_state,
-                }
-            }
-            ViewState::SingleSeriesFormats { .. } => (),
-        }
-    }
-
-    pub fn select_top_level_series(&mut self) {
-        match self.view_state {
-            ViewState::TopLevelSeries(_) => (),
-            ViewState::SingleSeriesFormats {
-                top_level_series_state,
-                ..
-            } => self.view_state = ViewState::TopLevelSeries(top_level_series_state),
-        }
-    }
-
-    pub fn select_next(&mut self) {
-        self.current_list_state_mut().select_next();
-    }
-
-    pub fn select_previous(&mut self) {
-        let state = self.current_list_state_mut();
-
-        if let Some(0) = state.selected() {
-            state.wrap_to_last = true;
-        } else {
-            state.select_previous();
-        }
-    }
-
-    fn current_list_state_mut(&mut self) -> &mut ListState {
-        match &mut self.view_state {
-            ViewState::TopLevelSeries(state) => state,
-            ViewState::SingleSeriesFormats {
-                current_list_state, ..
-            } => current_list_state,
-        }
+        StatefulWidget::render(list, area, buf, &mut list_state);
     }
 }
 
 #[derive(Debug)]
 pub enum ViewState {
-    TopLevelSeries(ListState),
-    SingleSeriesFormats {
-        selected_series: usize,
-        current_list_state: ListState,
-        top_level_series_state: ListState,
+    RootSeries {
+        selected_index: Option<i32>,
+    },
+    SeriesFormats {
+        root_series_index: i32,
+        selected_format_index: i32,
     },
 }
 
-#[derive(Copy, Clone, Debug, Default, Deref, DerefMut)]
-pub struct ListState {
-    /// `ratatui` uses a `usize` for its `ListState` selection index,
-    /// so we need a way to know when the index needs to wrap
-    /// around from the top since negative values can't be used
-    wrap_to_last: bool,
-    #[deref]
-    #[deref_mut]
-    state: widgets::ListState,
-}
-
-impl From<widgets::ListState> for ListState {
-    fn from(value: widgets::ListState) -> Self {
-        Self {
-            wrap_to_last: false,
-            state: value,
+impl ViewState {
+    pub fn new() -> Self {
+        Self::RootSeries {
+            selected_index: None,
         }
     }
+
+    /// Piece together data required to render a single frame of the view state.
+    ///
+    /// The view state may be altered if it does not contain valid data for a frame.
+    pub fn frame_state<'a>(
+        &'a mut self,
+        series_list: &'a [state::series_list::Entry],
+    ) -> FrameViewState<'a> {
+        FrameViewState::with_view_state(series_list, self)
+    }
+
+    pub fn select_root_series(&mut self) {
+        match self {
+            Self::RootSeries { .. } => (),
+            &mut Self::SeriesFormats {
+                root_series_index, ..
+            } => {
+                *self = Self::RootSeries {
+                    selected_index: Some(root_series_index),
+                }
+            }
+        }
+    }
+
+    pub fn select_series_formats(&mut self) {
+        match self {
+            Self::RootSeries { selected_index } => {
+                // ensure there's a selected series, since we'll be viewing
+                // the formats of one (which implies selection)
+                let selected_series = *selected_index.get_or_insert(0);
+
+                *self = Self::SeriesFormats {
+                    root_series_index: selected_series,
+                    selected_format_index: 0,
+                };
+            }
+            Self::SeriesFormats { .. } => (),
+        }
+    }
+
+    pub fn select_next(&mut self) {
+        self.modify_selected_index(|idx| idx.map(|i| i + 1).unwrap_or(0));
+    }
+
+    pub fn select_previous(&mut self) {
+        self.modify_selected_index(|idx| idx.map(|i| i - 1).unwrap_or(0));
+    }
+
+    fn current_selected_index_mut(&mut self) -> Option<&mut i32> {
+        match self {
+            Self::RootSeries { selected_index } => selected_index.as_mut(),
+            Self::SeriesFormats {
+                selected_format_index,
+                ..
+            } => Some(selected_format_index),
+        }
+    }
+
+    fn modify_selected_index(&mut self, func: impl FnOnce(Option<i32>) -> i32) {
+        match self {
+            Self::RootSeries { selected_index } => *selected_index = Some(func(*selected_index)),
+            Self::SeriesFormats {
+                selected_format_index,
+                ..
+            } => *selected_format_index = func(Some(*selected_format_index)),
+        }
+    }
+}
+
+/// The view state for an individual render frame.
+pub struct FrameViewState<'a> {
+    view_state: &'a mut ViewState,
+    data: FrameData<'a>,
+}
+
+impl<'a> FrameViewState<'a> {
+    /// Construct a frame view state.
+    ///
+    /// If the conditions required to render a frame for the current view state could not
+    /// be met, the view state will be set to [`ViewState::RootSeries`], and the returned frame
+    /// state data will also be [`FrameData::RootSeries`].
+    fn with_view_state(
+        series_list: &'a [state::series_list::Entry],
+        view_state: &'a mut ViewState,
+    ) -> Self {
+        match view_state {
+            ViewState::RootSeries { .. } => Self {
+                view_state,
+                data: FrameData::RootSeries { series_list },
+            },
+            ViewState::SeriesFormats {
+                root_series_index, ..
+            } => {
+                'blk: {
+                    let Some(root_index_usize) = (*root_series_index).try_into().ok() else {
+                        break 'blk;
+                    };
+
+                    let entry = match series_list.get::<usize>(root_index_usize) {
+                        Some(entry) => entry,
+                        None => break 'blk,
+                    };
+
+                    match entry.get_resolved() {
+                        Some(series_data) => {
+                            return Self {
+                                view_state,
+                                data: FrameData::SeriesFormats { series_data },
+                            };
+                        }
+                        None => break 'blk,
+                    }
+                };
+
+                *view_state = ViewState::RootSeries {
+                    selected_index: Some(*root_series_index),
+                };
+
+                Self {
+                    view_state,
+                    data: FrameData::RootSeries { series_list },
+                }
+            }
+        }
+    }
+
+    pub fn data(&self) -> &FrameData<'_> {
+        &self.data
+    }
+
+    fn selected_index_mut(&mut self) -> Option<&mut i32> {
+        // `view_state` is kept in sync with the frame data variant, so we can just
+        // return the selected index regardless of its variant
+        self.view_state.current_selected_index_mut()
+    }
+}
+
+pub enum FrameData<'a> {
+    RootSeries {
+        series_list: &'a [state::series_list::Entry],
+    },
+    SeriesFormats {
+        series_data: &'a series::RootPairing,
+    },
 }
