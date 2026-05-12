@@ -23,13 +23,10 @@ impl<'a> SeriesInfo<'a> {
         self
     }
 
-    fn render_detected_series(area: Rect, buf: &mut Buffer) {
-        let hint_text = Paragraph::new(Text::styled(
-            "It is queued for automatic scanning.",
-            Style::new().dark_gray(),
-        ))
-        .wrap(Wrap { trim: false })
-        .centered();
+    fn render_info_text_with_hint(info_text: Text, hint_text: Text, area: Rect, buf: &mut Buffer) {
+        let hint_text = Paragraph::new(hint_text)
+            .wrap(Wrap { trim: false })
+            .centered();
 
         let num_hint_lines = hint_text.line_count(area.width);
 
@@ -39,12 +36,9 @@ impl<'a> SeriesInfo<'a> {
 
         hint_text.render(hint_area, buf);
 
-        let info_text = Paragraph::new(Text::styled(
-            "A series folder was detected, but it has not yet been scanned for episodes.",
-            Style::new().bold(),
-        ))
-        .wrap(Wrap { trim: false })
-        .centered();
+        let info_text = Paragraph::new(info_text)
+            .wrap(Wrap { trim: false })
+            .centered();
 
         let num_info_lines = info_text.line_count(area.width);
 
@@ -54,6 +48,36 @@ impl<'a> SeriesInfo<'a> {
         Clear.render(info_text_area, buf);
 
         info_text.render(info_text_area, buf);
+    }
+
+    fn render_detected_series(area: Rect, buf: &mut Buffer) {
+        Self::render_info_text_with_hint(
+            Text::styled(
+                "A series folder was detected, but it has not yet been scanned for episodes.",
+                Style::new().bold(),
+            ),
+            Text::styled(
+                "It is queued for automatic scanning.",
+                Style::new().dark_gray(),
+            ),
+            area,
+            buf,
+        );
+    }
+
+    fn render_scanning_series(area: Rect, buf: &mut Buffer) {
+        Self::render_info_text_with_hint(
+            Text::styled(
+                "This series folder is currently being scanned for episodes.",
+                Style::new().bold(),
+            ),
+            Text::styled(
+                "Once complete, it will start pairing to the configured service.",
+                Style::new().dark_gray(),
+            ),
+            area,
+            buf,
+        );
     }
 }
 
@@ -70,6 +94,7 @@ impl ratatui::widgets::Widget for SeriesInfo<'_> {
         #[allow(clippy::single_match)]
         match self.entry.map(|e| &e.state) {
             Some(EntryState::Detected) => Self::render_detected_series(inner_area, buf),
+            Some(EntryState::Scanning) => Self::render_scanning_series(inner_area, buf),
             // todo: support remaining variants
             _ => (),
         }
