@@ -22,9 +22,9 @@ impl tui::Panel for Log {
     fn process_input(
         &mut self,
         event: crossterm::event::KeyEvent,
-        info: &tui::state::Info,
+        _info: &tui::state::Info,
         state: &mut tui::State,
-        _render_trigger: &tui::RenderTrigger,
+        render_trigger: &tui::RenderTrigger,
     ) -> tui::event::Result {
         if !event.is_press() {
             return tui::event::Result::Continue(None);
@@ -39,9 +39,7 @@ impl tui::Panel for Log {
                     .scroll_offset
                     .get_or_insert(state.log_message_buffer.len());
 
-                *offset = offset
-                    .saturating_sub(SCROLL_AMOUNT)
-                    .max(info.size.height as usize);
+                *offset = offset.saturating_sub(SCROLL_AMOUNT);
             }
             KeyCode::PageDown | KeyCode::Down => {
                 let new_offset =
@@ -53,11 +51,12 @@ impl tui::Panel for Log {
                     Some(new_offset)
                 };
             }
-            KeyCode::Home => self.scroll_offset = Some(info.size.height as usize),
+            KeyCode::Home => self.scroll_offset = Some(0),
             KeyCode::End => self.scroll_offset = None,
-            _ => (),
+            _ => return tui::event::Result::Continue(None),
         }
 
+        render_trigger.notify_one();
         tui::event::Result::Continue(None)
     }
 
@@ -89,13 +88,8 @@ impl tui::Panel for Log {
 
         let log = tui::widget::Log::new(&state.log_message_buffer).scroll(scroll_offset);
 
-        let mut scrollbar_state = ScrollbarState::new(
-            state
-                .log_message_buffer
-                .len()
-                .saturating_sub(area.height as usize),
-        )
-        .position(scroll_offset.saturating_sub(area.height as usize));
+        let mut scrollbar_state =
+            ScrollbarState::new(state.log_message_buffer.len()).position(scroll_offset);
 
         let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
 
