@@ -1,6 +1,3 @@
-// temporary
-#![allow(unused)]
-
 mod series;
 mod tui;
 

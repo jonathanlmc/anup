@@ -78,7 +78,12 @@ pub enum EntryState {
     Resolving(String),
     Resolved(series::RootPairing),
     Unresolved(series::LocalRoot),
-    Failure { name: String, error: EntryError },
+    Failure {
+        name: String,
+        // todo: display in interface
+        #[allow(unused)]
+        error: EntryError,
+    },
 }
 
 impl EntryState {

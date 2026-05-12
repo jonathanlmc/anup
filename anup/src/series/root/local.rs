@@ -23,6 +23,8 @@ pub enum ParseError {
 
 #[derive(Debug)]
 pub struct LocalRoot {
+    // todo: display in interface
+    #[allow(unused)]
     pub path: PathBuf,
     pub parsed_name: String,
     pub episodes: HashMap<series::Format, episode::Set>,

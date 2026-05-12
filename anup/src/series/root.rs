@@ -2,13 +2,7 @@ pub mod local;
 
 pub use local::LocalRoot;
 
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
-
 use indexmap::IndexMap;
-use tap::TapFallible;
 
 use crate::series::episode;
 
@@ -34,9 +28,18 @@ impl RootPairing {
 pub enum RemoteSeasonPairing {
     Paired {
         remote_info: anime::Anime,
+        // todo: display in interface
+        #[allow(unused)]
         local_episodes: episode::Set,
+        // todo: display in interface
+        #[allow(unused)]
         unpaired_local_episodes: episode::Set,
+        // todo: hook up to remote api
+        #[allow(unused)]
         in_sync: bool,
     },
-    Unpaired(episode::Set),
+    Unpaired(
+        // todo: display in interface
+        #[allow(unused)] episode::Set,
+    ),
 }

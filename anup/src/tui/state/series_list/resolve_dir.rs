@@ -1,12 +1,11 @@
 use std::{borrow::Cow, path::PathBuf, sync::Arc};
 
-use anyhow::{Context, anyhow};
-use futures::StreamExt;
+use anyhow::Context;
 
 use crate::{
     series,
     tui::{
-        event::{self, AppEvent},
+        event,
         state::{
             self,
             series_list::{EntryState, Event},
@@ -22,8 +21,8 @@ pub async fn resolve_all(event_chan: event::EventSender, dir: PathBuf) -> anyhow
         .await
         .context("failed to scan series directory")?;
 
-    let mut detection_semaphore = Arc::new(tokio::sync::Semaphore::new(MAX_BUFFERED_DETECTIONS));
-    let mut resolve_semaphore = Arc::new(tokio::sync::Semaphore::new(MAX_CONCURRENT_RESOLVES));
+    let detection_semaphore = Arc::new(tokio::sync::Semaphore::new(MAX_BUFFERED_DETECTIONS));
+    let resolve_semaphore = Arc::new(tokio::sync::Semaphore::new(MAX_CONCURRENT_RESOLVES));
     let mut task_set = tokio::task::JoinSet::new();
 
     loop {
@@ -145,7 +144,7 @@ async fn resolve_new_series(
 
                 state::series_list::EntryError::Panic(msg)
             }
-            Err(err) => {
+            Err(_) => {
                 tracing::trace!(%filename, "received cancel signal for series resolve");
                 return Ok(());
             }

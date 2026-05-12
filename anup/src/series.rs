@@ -6,10 +6,6 @@ pub use automatch::AutomatchResult;
 pub use episode::Episode;
 pub use root::{LocalRoot, RemoteSeasonPairing, RootPairing};
 
-use indexmap::IndexMap;
-
-use std::collections::HashMap;
-
 type LocalSeriesInfo<'a> = medinpar::Series<'a>;
 type LocalEpisodeInfo = medinpar::Episode<Format>;
 

@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use anime::api::AnimeInfo;
-use anyhow::Context;
 use indexmap::IndexMap;
 
 use crate::series::{self, episode};
@@ -89,8 +88,6 @@ impl ScoredFormats {
         local_series: &series::LocalRoot,
         anime_entries: impl Iterator<Item = (&'a anime::AnimeID, &'a anime::Anime)>,
     ) -> Self {
-        use std::collections::hash_map::Entry;
-
         const SCORE_SCALE: u32 = 10_000;
         const CONFIDENT_SCORE: u32 = 70 * SCORE_SCALE;
         const MATCHING_FORMAT_SCORE_ADJUSTMENT: u32 = 25 * SCORE_SCALE;
@@ -192,7 +189,7 @@ impl ScoredFormats {
     /// This will resolve any continuous seasons detected in any
     /// of the local series formats as well, and may take a while to complete.
     async fn pair_formats_to_new_series_root(
-        mut self,
+        self,
         mut local_series: series::LocalRoot,
         mut anime_entries: IndexMap<anime::AnimeID, anime::Anime>,
         anime_service: &impl anime::api::Service,

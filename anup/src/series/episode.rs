@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::series::{self, LocalEpisodeInfo};
+use crate::series::LocalEpisodeInfo;
 
 pub type Set = HashSet<Episode>;
 
