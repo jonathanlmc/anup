@@ -77,53 +77,57 @@ impl<'a> SeriesList<'a> {
             Music => "MU ".into(),
         }
     }
+
+    fn rendered_root_series(series_list: &[state::series_list::Entry]) -> widgets::List<'_> {
+        let items = series_list.iter().map(|series| {
+            use state::series_list::EntryState;
+
+            let mut style = Style::default();
+
+            let (color, modifier, name) = match &series.state {
+                EntryState::Detected => (Color::DarkGray, None, "Detected.."),
+                EntryState::Scanning => (Color::DarkGray, Some(Modifier::ITALIC), "Scanning.."),
+                EntryState::Resolving(name) => (Color::Green, None, name.as_str()),
+                EntryState::Resolved(pairing) => (Color::Gray, None, pairing.name.as_str()),
+                EntryState::Unresolved(local) => (
+                    Color::DarkGray,
+                    Some(Modifier::ITALIC | Modifier::BOLD),
+                    local.parsed_name.as_str(),
+                ),
+                EntryState::Failure { name, .. } => {
+                    (Color::Red, Some(Modifier::ITALIC), name.as_str())
+                }
+            };
+
+            style = style.fg(color);
+
+            if let Some(modifier) = modifier {
+                style = style.add_modifier(modifier);
+            }
+
+            Line::styled(name, style)
+        });
+
+        widgets::List::new(items)
+    }
+
+    fn rendered_series_formats(series_data: &series::RootPairing) -> widgets::List<'_> {
+        let items = series_data.pairings.iter().flat_map(|(format, seasons)| {
+            seasons.into_iter().map(|(season, season_data)| {
+                Self::rendered_single_series_format(*format, *season, season_data)
+            })
+        });
+
+        widgets::List::new(items)
+    }
 }
 
 impl<'a> ratatui::widgets::Widget for SeriesList<'a> {
     fn render(mut self, area: ratatui::prelude::Rect, buf: &mut ratatui::prelude::Buffer) {
         let mut list = match self.frame_state.data {
-            FrameData::RootSeries { series_list, .. } => {
-                let items = series_list.iter().map(|series| {
-                    use state::series_list::EntryState;
-
-                    let mut style = Style::default();
-
-                    let (color, modifier, name) = match &series.state {
-                        EntryState::Detected => (Color::DarkGray, None, "Detected.."),
-                        EntryState::Scanning => {
-                            (Color::DarkGray, Some(Modifier::ITALIC), "Scanning..")
-                        }
-                        EntryState::Resolving(name) => (Color::Green, None, name.as_str()),
-                        EntryState::Resolved(pairing) => (Color::Gray, None, pairing.name.as_str()),
-                        EntryState::Unresolved(local) => (
-                            Color::DarkGray,
-                            Some(Modifier::ITALIC | Modifier::BOLD),
-                            local.parsed_name.as_str(),
-                        ),
-                        EntryState::Failure { name, .. } => {
-                            (Color::Red, Some(Modifier::ITALIC), name.as_str())
-                        }
-                    };
-
-                    style = style.fg(color);
-
-                    if let Some(modifier) = modifier {
-                        style = style.add_modifier(modifier);
-                    }
-
-                    Line::styled(name, style)
-                });
-
-                widgets::List::new(items)
-            }
+            FrameData::RootSeries { series_list, .. } => Self::rendered_root_series(series_list),
             FrameData::SeriesFormats { series_data, .. } => {
-                let items = series_data.pairings.iter().flat_map(|(format, seasons)| {
-                    seasons.into_iter().map(|(season, season_data)| {
-                        Self::rendered_single_series_format(*format, *season, season_data)
-                    })
-                });
-
-                widgets::List::new(items)
+                Self::rendered_series_formats(series_data)
             }
         };
 
