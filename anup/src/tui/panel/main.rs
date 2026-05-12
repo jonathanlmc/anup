@@ -6,7 +6,10 @@ use ratatui::{
 
 use crate::tui::{
     self,
-    widget::{SeriesList, series},
+    widget::{
+        SeriesList,
+        series::{self, SeriesInfo},
+    },
 };
 
 #[derive(Debug)]
@@ -67,7 +70,7 @@ impl tui::Panel for Main {
             Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)])
                 .areas(frame.area());
 
-        let series_tree = {
+        let series_list = {
             let frame_state = self.series_list_state.frame_state(&state.series_list);
 
             let title = match frame_state.data() {
@@ -78,9 +81,17 @@ impl tui::Panel for Main {
             SeriesList::new(frame_state).block(Block::bordered().title(title))
         };
 
-        frame.render_widget(series_tree, left_area);
+        frame.render_widget(series_list, left_area);
 
-        let info_panel = Block::bordered().title("Info");
+        let info_panel = {
+            let series_entry = self
+                .series_list_state
+                .root_series_index()
+                .and_then(|idx| idx.try_into().ok())
+                .and_then(|idx: usize| state.series_list.get(idx));
+
+            SeriesInfo::new(series_entry).block(Block::bordered().title("Info"))
+        };
 
         frame.render_widget(info_panel, right_area);
     }

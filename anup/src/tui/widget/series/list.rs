@@ -224,6 +224,15 @@ impl ViewState {
         self.modify_selected_index(|idx| idx.map(|i| i - 1).unwrap_or(0));
     }
 
+    pub fn root_series_index(&self) -> Option<i32> {
+        match self {
+            Self::RootSeries { selected_index } => *selected_index,
+            Self::SeriesFormats {
+                root_series_index, ..
+            } => Some(*root_series_index),
+        }
+    }
+
     fn current_selected_index_mut(&mut self) -> Option<&mut i32> {
         match self {
             Self::RootSeries { selected_index } => selected_index.as_mut(),
