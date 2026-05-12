@@ -6,18 +6,18 @@ use ratatui::{
 
 use crate::tui::{
     self,
-    widget::{SeriesList, series_list},
+    widget::{SeriesList, series},
 };
 
 #[derive(Debug)]
 pub struct Main {
-    series_list_state: series_list::ViewState,
+    series_list_state: series::list::ViewState,
 }
 
 impl Main {
     pub fn new() -> Self {
         Self {
-            series_list_state: series_list::ViewState::new(),
+            series_list_state: series::list::ViewState::new(),
         }
     }
 }
@@ -71,8 +71,8 @@ impl tui::Panel for Main {
             let frame_state = self.series_list_state.frame_state(&state.series_list);
 
             let title = match frame_state.data() {
-                series_list::FrameData::RootSeries { .. } => "Series List",
-                series_list::FrameData::SeriesFormats { .. } => "Series Format Selection",
+                series::list::FrameData::RootSeries { .. } => "Series List",
+                series::list::FrameData::SeriesFormats { .. } => "Series Format Selection",
             };
 
             SeriesList::new(frame_state).block(Block::bordered().title(title))
