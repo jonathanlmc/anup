@@ -5,18 +5,18 @@ edition = "2024"
 build = "build.rs"
 
 [build-dependencies]
-anyhow = "1.0.102"
-walkdir = "2.5.0"
+anyhow = "1.0.103"
+walkdir = "2.5"
 
 [dependencies]
-reqwest = { version = "0.13.3", default-features = false, features = ["json"] }
+reqwest = { version = "0.13", default-features = false, features = ["json"] }
 serde = { version = "1.0.228", features = ["serde_derive"] }
-serde_json = "1.0.149"
-serde_with = "3.18.0"
-tap = "1.0.1"
-thiserror = "2.0.18"
+serde_json = "1.0"
+serde_with = "3.18"
+tap = "1.0"
+thiserror = "2.0"
 tokio = { version = "1.52.1", optional = true, features = ["sync"] }
-tracing = "0.1.44"
+tracing = "0.1"
 
 [features]
 rate_limit = ["dep:tokio"]
