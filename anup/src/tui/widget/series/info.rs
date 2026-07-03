@@ -97,33 +97,58 @@ impl ratatui::widgets::Widget for SeriesInfo<'_> {
             Some(EntryState::Resolving(series)) => {
                 resolving_series::render(series, inner_area, buf)
             }
+            Some(EntryState::Failure { error, .. }) => failure::render(error, inner_area, buf),
             // todo: support remaining variants
             _ => (),
         }
     }
 }
 
-mod resolving_series {
+mod info_panel {
     use super::*;
 
-    fn render_title(area: Rect, buf: &mut Buffer) -> Rect {
-        let info_text = Paragraph::new("Series Is Currently Resolving").centered();
+    pub fn render_title(title: &str, style: Style, area: Rect, buf: &mut Buffer) -> Rect {
+        let title_para = Paragraph::new(Text::styled(title, style)).centered();
 
-        let [info_text_area, remaining_area] =
+        let [title_area, remaining_area] =
             Layout::vertical([Constraint::Length(1), Constraint::Fill(1)]).areas(area);
 
-        info_text.render(info_text_area, buf);
+        title_para.render(title_area, buf);
         remaining_area
     }
 
-    fn build_hint_text() -> Paragraph<'static> {
-        Paragraph::new(Text::styled(
-            "The series will be playable once it has finished resolving to the configured anime API service.",
-            Style::default().dark_gray(),
-        ))
-        .wrap(Wrap { trim: false })
-        .centered()
+    pub fn layout_and_render<'a>(
+        info_text: Paragraph<'a>,
+        hint_text: Paragraph<'a>,
+        area: Rect,
+        buf: &mut Buffer,
+    ) {
+        let offset_area = area.intersection(area.offset(Offset::new(2, 2)));
+
+        let num_hint_lines = hint_text.line_count(offset_area.width);
+        let num_info_lines = info_text.line_count(offset_area.width);
+
+        let [info_area, hint_area] = Layout::vertical([
+            Constraint::Min(num_info_lines as u16),
+            Constraint::Length(num_hint_lines as u16),
+        ])
+        .areas(offset_area);
+
+        hint_text.render(hint_area, buf);
+        // the info text takes priority over the hint text; render over it if we're tight on space
+        Clear.render(info_area, buf);
+        info_text.render(info_area, buf);
     }
+
+    pub fn build_hint<'a>(text: &'a str) -> Paragraph<'a> {
+        Paragraph::new(Text::styled(text, Style::default().dark_gray()))
+            .wrap(Wrap { trim: false })
+            .centered()
+    }
+}
+
+mod resolving_series {
+    use super::*;
 
     fn build_info_text<'a>(series: &'a series::LocalRoot) -> Text<'a> {
         let mut info_text = Text::from(Span::styled("Path: ", Style::default().bold()));
@@ -143,31 +168,17 @@ mod resolving_series {
         info_text
     }
 
-    fn layout_and_render(info_text: Paragraph, hint_text: Paragraph, area: Rect, buf: &mut Buffer) {
-        let offset_area = area.intersection(area.offset(Offset::new(2, 2)));
-
-        let num_hint_lines = hint_text.line_count(offset_area.width);
-        let num_info_lines = info_text.line_count(offset_area.width);
-
-        let [info_area, hint_area] = Layout::vertical([
-            Constraint::Min(num_info_lines as u16),
-            Constraint::Length(num_hint_lines as u16),
-        ])
-        .areas(offset_area);
-
-        hint_text.render(hint_area, buf);
-        Clear.render(info_area, buf);
-        info_text.render(info_area, buf);
-    }
-
     pub fn render(series: &series::LocalRoot, area: Rect, buf: &mut Buffer) {
-        let remaining_area = render_title(area, buf);
+        let remaining_area =
+            info_panel::render_title("Series Is Currently Resolving", Style::default(), area, buf);
 
-        let hint_text = build_hint_text();
+        let hint_text = info_panel::build_hint(
+            "The series will be playable once it has finished resolving to the configured anime API service.",
+        );
         let info_text = build_info_text(series);
         let info_para = Paragraph::new(info_text).wrap(Wrap { trim: false });
 
-        layout_and_render(info_para, hint_text, remaining_area, buf);
+        info_panel::layout_and_render(info_para, hint_text, remaining_area, buf);
     }
 
     fn build_format_desc_line(line: &mut Line, episodes: &series::local::EpisodeMap) {
@@ -186,5 +197,55 @@ mod resolving_series {
         line.push_span(Span::raw(" ("));
         line.push_span(Span::styled(count.to_string(), Style::default().italic()));
         line.push_span(Span::raw(")"));
+    }
+}
+
+mod failure {
+    use super::*;
+
+    fn build_info_text<'a>(error: &'a state::series_list::EntryError) -> Text<'a> {
+        let mut info_text = Text::from(Span::styled("Type: ", Style::default().bold()));
+        info_text.push_span(Span::styled(
+            category_name(error),
+            Style::default().italic(),
+        ));
+
+        let reason_line = {
+            let mut line = Line::from(Span::styled("Reason: ", Style::default().bold()));
+            line.push_span(Span::styled(error.to_string(), Style::default().italic()));
+            line
+        };
+        info_text.push_line(reason_line);
+
+        info_text
+    }
+
+    fn category_name(error: &state::series_list::EntryError) -> &'static str {
+        use state::series_list::EntryError::*;
+
+        match error {
+            ParseError(_) => "Local Parsing Error",
+            Panic(_) => "Internal Error",
+            Automatch(_) => "Pairing Error",
+        }
+    }
+
+    pub fn render(error: &state::series_list::EntryError, area: Rect, buf: &mut Buffer) {
+        let remaining_area = info_panel::render_title(
+            "Failed to Resolve Series",
+            Style::default().red().bold(),
+            area,
+            buf,
+        );
+
+        let info_text = build_info_text(error);
+        let info_para = Paragraph::new(info_text).wrap(Wrap { trim: false });
+
+        // todo: implement series processing restarts
+        let hint_text = info_panel::build_hint(
+            "Restart the series resolving process by pressing Shift + R. (WIP)",
+        );
+
+        info_panel::layout_and_render(info_para, hint_text, remaining_area, buf);
     }
 }
