@@ -1,12 +1,12 @@
 use ratatui::{
     buffer::Buffer,
-    layout::{Constraint, Flex, Layout, Rect},
+    layout::{Constraint, Flex, Layout, Offset, Rect},
     style::Style,
-    text::Text,
+    text::{Line, Span, Text},
     widgets::{Block, BlockExt, Clear, Paragraph, Widget, Wrap},
 };
 
-use crate::tui::state;
+use crate::{series, tui::state};
 
 pub struct SeriesInfo<'a> {
     entry: Option<&'a state::series_list::Entry>,
@@ -91,12 +91,100 @@ impl ratatui::widgets::Widget for SeriesInfo<'_> {
         let inner_area = self.block.inner_if_some(area);
         self.block.render(area, buf);
 
-        #[allow(clippy::single_match)]
         match self.entry.map(|e| &e.state) {
             Some(EntryState::Detected) => Self::render_detected_series(inner_area, buf),
             Some(EntryState::Scanning) => Self::render_scanning_series(inner_area, buf),
+            Some(EntryState::Resolving(series)) => {
+                resolving_series::render(series, inner_area, buf)
+            }
             // todo: support remaining variants
             _ => (),
         }
+    }
+}
+
+mod resolving_series {
+    use super::*;
+
+    fn render_title(area: Rect, buf: &mut Buffer) -> Rect {
+        let info_text = Paragraph::new("Series Is Currently Resolving").centered();
+
+        let [info_text_area, remaining_area] =
+            Layout::vertical([Constraint::Length(1), Constraint::Fill(1)]).areas(area);
+
+        info_text.render(info_text_area, buf);
+        remaining_area
+    }
+
+    fn build_hint_text() -> Paragraph<'static> {
+        Paragraph::new(Text::styled(
+            "The series will be playable once it has finished resolving to the configured anime API service.",
+            Style::default().dark_gray(),
+        ))
+        .wrap(Wrap { trim: false })
+        .centered()
+    }
+
+    fn build_info_text<'a>(series: &'a series::LocalRoot) -> Text<'a> {
+        let mut info_text = Text::from(Span::styled("Path: ", Style::default().bold()));
+
+        info_text.push_span(Span::styled(
+            series.path.to_string_lossy(),
+            Style::default().italic(),
+        ));
+
+        let format_list_line = {
+            let mut line = Line::from(Span::styled("Found formats: ", Style::default().bold()));
+            build_format_desc_line(&mut line, &series.episodes);
+            line
+        };
+
+        info_text.push_line(format_list_line);
+        info_text
+    }
+
+    fn layout_and_render(info_text: Paragraph, hint_text: Paragraph, area: Rect, buf: &mut Buffer) {
+        let offset_area = area.intersection(area.offset(Offset::new(2, 2)));
+
+        let num_hint_lines = hint_text.line_count(offset_area.width);
+        let num_info_lines = info_text.line_count(offset_area.width);
+
+        let [info_area, hint_area] = Layout::vertical([
+            Constraint::Min(num_info_lines as u16),
+            Constraint::Length(num_hint_lines as u16),
+        ])
+        .areas(offset_area);
+
+        hint_text.render(hint_area, buf);
+        Clear.render(info_area, buf);
+        info_text.render(info_area, buf);
+    }
+
+    pub fn render(series: &series::LocalRoot, area: Rect, buf: &mut Buffer) {
+        let remaining_area = render_title(area, buf);
+
+        let hint_text = build_hint_text();
+        let info_text = build_info_text(series);
+        let info_para = Paragraph::new(info_text).wrap(Wrap { trim: false });
+
+        layout_and_render(info_para, hint_text, remaining_area, buf);
+    }
+
+    fn build_format_desc_line(line: &mut Line, episodes: &series::local::EpisodeMap) {
+        for (i, (fmt, eps)) in episodes.iter().enumerate() {
+            append_format_desc_entry(line, *fmt, eps.len());
+
+            // separate each entry unless it's the last
+            if i < episodes.len().saturating_sub(1) {
+                line.push_span(Span::raw(", "));
+            }
+        }
+    }
+
+    fn append_format_desc_entry(line: &mut Line, fmt: series::Format, count: usize) {
+        line.push_span(Span::styled(fmt.titlecase_str(), Style::default().cyan()));
+        line.push_span(Span::raw(" ("));
+        line.push_span(Span::styled(count.to_string(), Style::default().italic()));
+        line.push_span(Span::raw(")"));
     }
 }

@@ -4,7 +4,7 @@ pub mod root;
 
 pub use automatch::AutomatchResult;
 pub use episode::Episode;
-pub use root::{LocalRoot, RemoteSeasonPairing, RootPairing};
+pub use root::{LocalRoot, RemoteSeasonPairing, RootPairing, local};
 
 type LocalSeriesInfo<'a> = medinpar::Series<'a>;
 type LocalEpisodeInfo = medinpar::Episode<Format>;
@@ -18,6 +18,20 @@ pub enum Format {
     Ona,
     Ova,
     Music,
+}
+
+impl Format {
+    /// Return a string representation of the format in titlecase format.
+    pub const fn titlecase_str(self) -> &'static str {
+        match self {
+            Self::Tv => "TV",
+            Self::Special => "Special",
+            Self::Movie => "Movie",
+            Self::Ona => "ONA",
+            Self::Ova => "OVA",
+            Self::Music => "Music",
+        }
+    }
 }
 
 impl medinpar::Format for Format {

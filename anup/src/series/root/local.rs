@@ -8,6 +8,8 @@ use walkdir::WalkDir;
 
 use crate::series::{self, Episode, LocalSeriesInfo, episode};
 
+pub type EpisodeMap = HashMap<series::Format, episode::Set>;
+
 #[derive(thiserror::Error, Debug)]
 pub enum ParseError {
     #[error("{0}")]
@@ -27,7 +29,7 @@ pub struct LocalRoot {
     #[allow(unused)]
     pub path: PathBuf,
     pub parsed_name: String,
-    pub episodes: HashMap<series::Format, episode::Set>,
+    pub episodes: EpisodeMap,
 }
 
 impl LocalRoot {
