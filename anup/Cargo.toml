@@ -11,7 +11,7 @@ crossterm = { version = "0.29.0", features = ["event-stream"] }
 derive_more = { version = "2.1.1", features = ["deref", "deref_mut", "from"] }
 futures = "0.3.32"
 indexmap = "2.14.0"
-medinpar = "0.1.0"
+medinpar = { git = "https://github.com/jonathanlmc/medinpar.git", rev = "cfd4fc97cc4ef54f4d1aa44c9e304fdc394dbd36" }
 ratatui = { version = "0.30.0", default-features = false, features = ["crossterm", "std", "layout-cache", "macros"] }
 ratatui-widgets = { version = "0.3.0", features = ["unstable-rendered-line-info"] }
 reqwest = { version = "0.13.3", default-features = false, features = ["native-tls", "charset", "http2", "system-proxy"] }

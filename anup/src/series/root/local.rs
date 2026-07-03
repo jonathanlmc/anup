@@ -21,7 +21,7 @@ pub enum ParseError {
     },
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct LocalRoot {
     // todo: display in interface
     #[allow(unused)]

@@ -26,7 +26,7 @@ pub enum ParseError {
     InvalidUtf8,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Episode {
     pub info: LocalEpisodeInfo,
     pub path: PathBuf,

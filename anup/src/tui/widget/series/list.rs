@@ -87,7 +87,7 @@ impl<'a> SeriesList<'a> {
             let (color, modifier, name) = match &series.state {
                 EntryState::Detected => (Color::DarkGray, None, "Detected.."),
                 EntryState::Scanning => (Color::DarkGray, Some(Modifier::ITALIC), "Scanning.."),
-                EntryState::Resolving(name) => (Color::Green, None, name.as_str()),
+                EntryState::Resolving(series) => (Color::Green, None, series.parsed_name.as_str()),
                 EntryState::Resolved(pairing) => (Color::Gray, None, pairing.name.as_str()),
                 EntryState::Unresolved(local) => (
                     Color::DarkGray,

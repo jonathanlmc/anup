@@ -75,7 +75,7 @@ pub struct Entry {
 pub enum EntryState {
     Detected,
     Scanning,
-    Resolving(String),
+    Resolving(series::LocalRoot),
     Resolved(series::RootPairing),
     Unresolved(series::LocalRoot),
     Failure {

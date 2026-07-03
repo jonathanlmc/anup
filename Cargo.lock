@@ -1004,8 +1004,7 @@ dependencies = [
 [[package]]
 name = "medinpar"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "436eedb467ebab9f791998e4983531c70c9f0a922622897a93f2cfdc6ff46e7b"
+source = "git+https://github.com/jonathanlmc/medinpar.git?rev=cfd4fc97cc4ef54f4d1aa44c9e304fdc394dbd36#cfd4fc97cc4ef54f4d1aa44c9e304fdc394dbd36"
 dependencies = [
  "thiserror",
  "winnow",

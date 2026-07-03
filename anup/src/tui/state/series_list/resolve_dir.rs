@@ -172,7 +172,7 @@ async fn resolve_new_series(
         .send(
             Event::Update {
                 stable_index: inserted_series_index,
-                state: EntryState::Resolving(local_series.parsed_name.clone()),
+                state: EntryState::Resolving(local_series.clone()),
             }
             .into(),
         )
