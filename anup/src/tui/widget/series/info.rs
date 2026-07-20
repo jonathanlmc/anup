@@ -102,7 +102,9 @@ impl ratatui::widgets::Widget for SeriesInfo<'_> {
                 inner_area,
                 buf,
             ),
-            Some(EntryState::Failure { error, .. }) => failure::render(error, inner_area, buf),
+            Some(EntryState::Failure { error, .. }) => {
+                failure_entry::render(error, inner_area, buf)
+            }
             Some(EntryState::Unresolved(series)) => local_series_info::render(
                 series,
                 "Series Could Not Be Resolved",
@@ -217,7 +219,7 @@ mod info_panel {
     }
 }
 
-mod failure {
+mod failure_entry {
     use super::*;
 
     fn build_info_text<'a>(error: &'a state::series_list::EntryError) -> Text<'a> {
