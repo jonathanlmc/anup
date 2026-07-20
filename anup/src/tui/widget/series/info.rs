@@ -79,6 +79,29 @@ impl<'a> SeriesInfo<'a> {
             buf,
         );
     }
+
+    fn render_resolving_series(series: &series::LocalRoot, area: Rect, buf: &mut Buffer) {
+        local_series_info::render(
+            series,
+            "Series Is Currently Resolving",
+            "The series will be playable once it has finished resolving to the \
+            configured anime API service.",
+            area,
+            buf,
+        )
+    }
+
+    fn render_unresolved_series(series: &series::LocalRoot, area: Rect, buf: &mut Buffer) {
+        local_series_info::render(
+            series,
+            "Series Could Not Be Resolved",
+            // todo: implement manual pairing
+            "No match was found on the configured anime API service. Manually pair \
+            it by pressing Ctrl + P (WIP).",
+            area,
+            buf,
+        )
+    }
 }
 
 impl ratatui::widgets::Widget for SeriesInfo<'_> {
@@ -94,27 +117,15 @@ impl ratatui::widgets::Widget for SeriesInfo<'_> {
         match self.entry.map(|e| &e.state) {
             Some(EntryState::Detected) => Self::render_detected_series(inner_area, buf),
             Some(EntryState::Scanning) => Self::render_scanning_series(inner_area, buf),
-            Some(EntryState::Resolving(series)) => local_series_info::render(
-                series,
-                "Series Is Currently Resolving",
-                "The series will be playable once it has finished resolving to the \
-                configured anime API service.",
-                inner_area,
-                buf,
-            ),
+            Some(EntryState::Resolving(series)) => {
+                Self::render_resolving_series(series, inner_area, buf)
+            }
             Some(EntryState::Failure { error, .. }) => {
                 failure_entry::render(error, inner_area, buf)
             }
-            Some(EntryState::Unresolved(series)) => local_series_info::render(
-                series,
-                "Series Could Not Be Resolved",
-                // todo: implement manual pairing
-                "No match was found on the configured anime API service. Manually pair \
-                it by pressing Ctrl + P (WIP).",
-                inner_area,
-                buf,
-            ),
-            // todo: support remaining variants
+            Some(EntryState::Unresolved(series)) => {
+                Self::render_unresolved_series(series, inner_area, buf)
+            }
             _ => (),
         }
     }
