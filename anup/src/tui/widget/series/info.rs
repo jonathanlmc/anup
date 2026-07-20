@@ -94,13 +94,83 @@ impl ratatui::widgets::Widget for SeriesInfo<'_> {
         match self.entry.map(|e| &e.state) {
             Some(EntryState::Detected) => Self::render_detected_series(inner_area, buf),
             Some(EntryState::Scanning) => Self::render_scanning_series(inner_area, buf),
-            Some(EntryState::Resolving(series)) => {
-                resolving_series::render(series, inner_area, buf)
-            }
+            Some(EntryState::Resolving(series)) => local_series_info::render(
+                series,
+                "Series Is Currently Resolving",
+                "The series will be playable once it has finished resolving to the \
+                configured anime API service.",
+                inner_area,
+                buf,
+            ),
             Some(EntryState::Failure { error, .. }) => failure::render(error, inner_area, buf),
+            Some(EntryState::Unresolved(series)) => local_series_info::render(
+                series,
+                "Series Could Not Be Resolved",
+                // todo: implement manual pairing
+                "No match was found on the configured anime API service. Manually pair \
+                it by pressing Ctrl + P (WIP).",
+                inner_area,
+                buf,
+            ),
             // todo: support remaining variants
             _ => (),
         }
+    }
+}
+
+mod local_series_info {
+    use super::*;
+
+    fn build_info_text<'a>(series: &'a series::LocalRoot) -> Text<'a> {
+        let mut info_text = Text::from(Span::styled("Path: ", Style::default().bold()));
+
+        info_text.push_span(Span::styled(
+            series.path.to_string_lossy(),
+            Style::default().italic(),
+        ));
+
+        let format_list_line = {
+            let mut line = Line::from(Span::styled("Found formats: ", Style::default().bold()));
+            build_format_desc_line(&mut line, &series.episodes);
+            line
+        };
+
+        info_text.push_line(format_list_line);
+        info_text
+    }
+
+    pub fn render(
+        series: &series::LocalRoot,
+        title: &str,
+        hint: &str,
+        area: Rect,
+        buf: &mut Buffer,
+    ) {
+        let remaining_area = info_panel::render_title(title, Style::default(), area, buf);
+
+        let hint_text = info_panel::build_hint(hint);
+        let info_text = build_info_text(series);
+        let info_para = Paragraph::new(info_text).wrap(Wrap { trim: false });
+
+        info_panel::layout_and_render(info_para, hint_text, remaining_area, buf);
+    }
+
+    fn build_format_desc_line(line: &mut Line, episodes: &series::local::EpisodeMap) {
+        for (i, (fmt, eps)) in episodes.iter().enumerate() {
+            append_format_desc_entry(line, *fmt, eps.len());
+
+            // separate each entry unless it's the last
+            if i < episodes.len().saturating_sub(1) {
+                line.push_span(Span::raw(", "));
+            }
+        }
+    }
+
+    fn append_format_desc_entry(line: &mut Line, fmt: series::Format, count: usize) {
+        line.push_span(Span::styled(fmt.titlecase_str(), Style::default().cyan()));
+        line.push_span(Span::raw(" ("));
+        line.push_span(Span::styled(count.to_string(), Style::default().italic()));
+        line.push_span(Span::raw(")"));
     }
 }
 
@@ -144,59 +214,6 @@ mod info_panel {
         Paragraph::new(Text::styled(text, Style::default().dark_gray()))
             .wrap(Wrap { trim: false })
             .centered()
-    }
-}
-
-mod resolving_series {
-    use super::*;
-
-    fn build_info_text<'a>(series: &'a series::LocalRoot) -> Text<'a> {
-        let mut info_text = Text::from(Span::styled("Path: ", Style::default().bold()));
-
-        info_text.push_span(Span::styled(
-            series.path.to_string_lossy(),
-            Style::default().italic(),
-        ));
-
-        let format_list_line = {
-            let mut line = Line::from(Span::styled("Found formats: ", Style::default().bold()));
-            build_format_desc_line(&mut line, &series.episodes);
-            line
-        };
-
-        info_text.push_line(format_list_line);
-        info_text
-    }
-
-    pub fn render(series: &series::LocalRoot, area: Rect, buf: &mut Buffer) {
-        let remaining_area =
-            info_panel::render_title("Series Is Currently Resolving", Style::default(), area, buf);
-
-        let hint_text = info_panel::build_hint(
-            "The series will be playable once it has finished resolving to the configured anime API service.",
-        );
-        let info_text = build_info_text(series);
-        let info_para = Paragraph::new(info_text).wrap(Wrap { trim: false });
-
-        info_panel::layout_and_render(info_para, hint_text, remaining_area, buf);
-    }
-
-    fn build_format_desc_line(line: &mut Line, episodes: &series::local::EpisodeMap) {
-        for (i, (fmt, eps)) in episodes.iter().enumerate() {
-            append_format_desc_entry(line, *fmt, eps.len());
-
-            // separate each entry unless it's the last
-            if i < episodes.len().saturating_sub(1) {
-                line.push_span(Span::raw(", "));
-            }
-        }
-    }
-
-    fn append_format_desc_entry(line: &mut Line, fmt: series::Format, count: usize) {
-        line.push_span(Span::styled(fmt.titlecase_str(), Style::default().cyan()));
-        line.push_span(Span::raw(" ("));
-        line.push_span(Span::styled(count.to_string(), Style::default().italic()));
-        line.push_span(Span::raw(")"));
     }
 }
 
