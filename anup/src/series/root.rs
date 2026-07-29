@@ -22,6 +22,25 @@ impl RootPairing {
             pairings: FormatMap::default(),
         }
     }
+
+    /// Return an iterator over all formats and their seasons.
+    ///
+    /// Items are returned by format, and then by season number.
+    pub fn all_format_seasons(&self) -> impl Iterator<Item = FormatSeasonRef<'_>> {
+        self.pairings.iter().flat_map(|(format, seasons)| {
+            seasons.iter().map(|(season, pairing)| FormatSeasonRef {
+                format,
+                season,
+                pairing,
+            })
+        })
+    }
+}
+
+pub struct FormatSeasonRef<'a> {
+    pub format: &'a super::Format,
+    pub season: &'a u16,
+    pub pairing: &'a RemoteSeasonPairing,
 }
 
 #[derive(Debug)]

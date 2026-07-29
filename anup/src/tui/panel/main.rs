@@ -70,29 +70,26 @@ impl tui::Panel for Main {
             Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)])
                 .areas(frame.area());
 
-        let series_list = {
-            let frame_state = self.series_list_state.frame_state(&state.series_list);
+        let frame_data = self.series_list_state.frame_data(&state.series_list);
 
-            let title = match frame_state.data() {
+        let series_list = {
+            let title = match frame_data {
                 series::list::FrameData::RootSeries { .. } => "Series List",
                 series::list::FrameData::SeriesFormats { .. } => "Series Format Selection",
             };
 
-            SeriesList::new(frame_state).block(Block::bordered().title(title))
+            SeriesList::new(&frame_data).block(Block::bordered().title(title))
         };
 
         frame.render_widget(series_list, left_area);
 
-        let info_panel = {
-            let series_entry = self
-                .series_list_state
-                .root_series_index()
-                .and_then(|idx| idx.try_into().ok())
-                .and_then(|idx: usize| state.series_list.get(idx));
+        if let series::list::FrameData::RootSeries { selected_entry, .. } = &frame_data {
+            let info_panel =
+                SeriesInfo::new(*selected_entry).block(Block::bordered().title("Info"));
 
-            SeriesInfo::new(series_entry).block(Block::bordered().title("Info"))
-        };
+            frame.render_widget(info_panel, right_area);
+        }
 
-        frame.render_widget(info_panel, right_area);
+        self.series_list_state.apply_frame_data(frame_data);
     }
 }
