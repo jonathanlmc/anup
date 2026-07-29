@@ -120,13 +120,18 @@ impl ratatui::widgets::Widget for SeriesInfo<'_> {
             Some(EntryState::Resolving(series)) => {
                 Self::render_resolving_series(series, inner_area, buf)
             }
+            Some(EntryState::Resolved(series)) => {
+                // todo: display info for selected season when they are being viewed
+                resolved_series_entry::render(series, inner_area, buf)
+            }
             Some(EntryState::Failure { error, .. }) => {
                 failure_entry::render(error, inner_area, buf)
             }
             Some(EntryState::Unresolved(series)) => {
                 Self::render_unresolved_series(series, inner_area, buf)
             }
-            _ => (),
+            // todo: require entry state in `SeriesInfo` constructor?
+            None => (),
         }
     }
 }
@@ -165,7 +170,13 @@ mod local_series_info {
         let info_text = build_info_text(series);
         let info_para = Paragraph::new(info_text).wrap(Wrap { trim: false });
 
-        info_panel::layout_and_render(info_para, hint_text, remaining_area, buf);
+        info_panel::layout_and_render_with_offset(
+            info_para,
+            hint_text,
+            remaining_area,
+            Offset::new(2, 2),
+            buf,
+        );
     }
 
     fn build_format_desc_line(line: &mut Line, episodes: &series::local::EpisodeMap) {
@@ -206,21 +217,33 @@ mod info_panel {
         area: Rect,
         buf: &mut Buffer,
     ) {
-        let offset_area = area.intersection(area.offset(Offset::new(2, 2)));
-
-        let num_hint_lines = hint_text.line_count(offset_area.width);
-        let num_info_lines = info_text.line_count(offset_area.width);
+        let num_hint_lines = hint_text.line_count(area.width);
 
         let [info_area, hint_area] = Layout::vertical([
-            Constraint::Min(num_info_lines as u16),
+            Constraint::Fill(1),
             Constraint::Length(num_hint_lines as u16),
         ])
-        .areas(offset_area);
+        .areas(area);
 
         hint_text.render(hint_area, buf);
         // the info text takes priority over the hint text; render over it if we're tight on space
         Clear.render(info_area, buf);
         info_text.render(info_area, buf);
+    }
+
+    pub fn layout_and_render_with_offset<'a>(
+        info_text: Paragraph<'a>,
+        hint_text: Paragraph<'a>,
+        area: Rect,
+        offset: Offset,
+        buf: &mut Buffer,
+    ) {
+        layout_and_render(
+            info_text,
+            hint_text,
+            area.intersection(area.offset(offset)),
+            buf,
+        );
     }
 
     pub fn build_hint<'a>(text: &'a str) -> Paragraph<'a> {
@@ -276,6 +299,114 @@ mod failure_entry {
             "Restart the series resolving process by pressing Shift + R. (WIP)",
         );
 
-        info_panel::layout_and_render(info_para, hint_text, remaining_area, buf);
+        info_panel::layout_and_render_with_offset(
+            info_para,
+            hint_text,
+            remaining_area,
+            Offset::new(2, 2),
+            buf,
+        );
+    }
+}
+
+mod resolved_series_entry {
+    use super::*;
+
+    fn build_format_status_list<'a>(series: &'a series::RootPairing) -> Text<'a> {
+        let mut lines = Text::default();
+
+        for (fmt, seasons) in &series.pairings {
+            let num_seasons = seasons.len();
+
+            // count synced + unsynced + unpaired seasons for the format
+            let (synced, unsynced, unpaired) = seasons.values().fold(
+                (0u32, 0u32, 0u32),
+                |(synced, unsynced, unpaired), pairing| match pairing {
+                    series::RemoteSeasonPairing::Paired { in_sync: true, .. } => {
+                        (synced + 1, unsynced, unpaired)
+                    }
+                    series::RemoteSeasonPairing::Paired { in_sync: false, .. } => {
+                        (synced, unsynced + 1, unpaired)
+                    }
+                    series::RemoteSeasonPairing::Unpaired(_) => (synced, unsynced, unpaired + 1),
+                },
+            );
+
+            let mut line = Line::from(Span::styled(fmt.titlecase_str(), Style::default().cyan()));
+
+            line.push_span(Span::raw(": "));
+            line.push_span(Span::styled(
+                num_seasons.to_string(),
+                Style::default().italic(),
+            ));
+            line.push_span(Span::raw(match num_seasons {
+                1 => " season, ",
+                _ => " seasons, ",
+            }));
+
+            push_sync_status(&mut line, synced, unsynced, unpaired);
+
+            lines.push_line(line);
+        }
+
+        lines
+    }
+
+    fn push_sync_status(line: &mut Line<'static>, synced: u32, unsynced: u32, unpaired: u32) {
+        let uniform_sync_status_span = if unsynced == 0 {
+            Some(Span::styled("all", Style::default().green()))
+        } else if synced == 0 {
+            Some(Span::styled("none", Style::default().red()))
+        } else {
+            None
+        };
+
+        if let Some(status) = uniform_sync_status_span {
+            line.push_span(status);
+            line.push_span(Span::raw(" synced"));
+        } else {
+            line.push_span(Span::styled(synced.to_string(), Style::default().green()));
+            line.push_span(Span::raw(" synced, "));
+            line.push_span(Span::styled(unsynced.to_string(), Style::default().red()));
+            line.push_span(Span::raw(" unsynced"));
+        }
+
+        if unpaired > 0 {
+            line.push_span(Span::raw(", "));
+            // unpaired seasons could generally be considered a more "serious" issue
+            // than the season merely being out of sync, so make the entire span red & bold
+            // to draw more attention to it
+            line.push_span(Span::styled(
+                format!("{unpaired} unpaired"),
+                Style::default().red().italic().bold(),
+            ));
+        }
+    }
+
+    pub fn render(series: &series::RootPairing, area: Rect, buf: &mut Buffer) {
+        let status_line =
+            Paragraph::new(Text::styled("Status", Style::default().bold())).centered();
+
+        let [status_area, content_area] =
+            Layout::vertical([Constraint::Length(1), Constraint::Fill(1)]).areas(area);
+
+        status_line.render(status_area, buf);
+
+        // todo: implement episode playback of last watched format
+        let hint_text = info_panel::build_hint(
+            "Enter format selection with right arrow. Press enter to play the next episode \
+            from the last watched format. (WIP)",
+        );
+
+        let format_status_para =
+            Paragraph::new(build_format_status_list(series)).wrap(Wrap { trim: false });
+
+        info_panel::layout_and_render_with_offset(
+            format_status_para,
+            hint_text,
+            content_area,
+            Offset::new(2, 1),
+            buf,
+        );
     }
 }

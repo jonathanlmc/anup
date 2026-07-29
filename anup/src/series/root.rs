@@ -35,7 +35,6 @@ pub enum RemoteSeasonPairing {
         #[allow(unused)]
         unpaired_local_episodes: episode::Set,
         // todo: hook up to remote api
-        #[allow(unused)]
         in_sync: bool,
     },
     Unpaired(
