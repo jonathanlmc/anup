@@ -1,13 +1,20 @@
+mod image_cache;
 mod series;
 mod tui;
+mod util;
 
-use std::{collections::VecDeque, sync::LazyLock};
+use std::{
+    collections::VecDeque,
+    num::NonZeroUsize,
+    sync::{Arc, LazyLock},
+};
 
 use anyhow::Context;
+use tap::TapOptional;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::tui::state;
+use crate::{image_cache::ImageCache, tui::state};
 
 static REQWEST_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
 
@@ -39,11 +46,30 @@ async fn main() -> anyhow::Result<()> {
 
     let path = std::env::args().nth(1).context("missing path arg")?;
 
+    let cache_dir = dirs::cache_dir().tap_some_mut(|dir| {
+        dir.push(env!("CARGO_PKG_NAME"));
+        dir.push("img");
+    });
+
+    if let Some(dir) = &cache_dir
+        && !tokio::fs::try_exists(dir).await.unwrap_or(false)
+    {
+        tokio::fs::create_dir_all(dir).await?;
+    }
+
     tui::App::init(
         tui::State {
             series_scan_dir: path.into(),
             series_list: state::SeriesList::new(),
             log_message_buffer: VecDeque::with_capacity(tui::MAX_LOG_MESSAGES),
+            image_cache: Arc::new(ImageCache::new(
+                cache_dir,
+                // todo: make configurable
+                // safety: 10 > 0
+                NonZeroUsize::new(10).unwrap(),
+                // todo: make configurable
+                10 * 1024 * 1024, // 10 MiB
+            )),
         },
         tui::panel::Stack::new(Box::new(tui::panel::Main::new())),
         log_rx,

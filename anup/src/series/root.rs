@@ -27,37 +27,42 @@ impl RootPairing {
     ///
     /// Items are returned by format, and then by season number.
     pub fn all_format_seasons(&self) -> impl Iterator<Item = FormatSeasonRef<'_>> {
-        self.pairings.iter().flat_map(|(format, seasons)| {
-            seasons.iter().map(|(season, pairing)| FormatSeasonRef {
-                format,
-                season,
-                pairing,
-            })
+        self.pairings.iter().flat_map(|(&format, seasons)| {
+            seasons
+                .iter()
+                .map(move |(&season, pairing)| FormatSeasonRef {
+                    format,
+                    season,
+                    pairing,
+                })
         })
     }
 }
 
 pub struct FormatSeasonRef<'a> {
-    pub format: &'a super::Format,
-    pub season: &'a u16,
+    pub format: super::Format,
+    pub season: u16,
     pub pairing: &'a RemoteSeasonPairing,
 }
 
 #[derive(Debug)]
 pub enum RemoteSeasonPairing {
-    Paired {
-        remote_info: anime::Anime,
-        // todo: display in interface
-        #[allow(unused)]
-        local_episodes: episode::Set,
-        // todo: display in interface
-        #[allow(unused)]
-        unpaired_local_episodes: episode::Set,
-        // todo: hook up to remote api
-        in_sync: bool,
-    },
+    Paired(PairedSeason),
     Unpaired(
         // todo: display in interface
         #[allow(unused)] episode::Set,
     ),
+}
+
+#[derive(Debug)]
+pub struct PairedSeason {
+    pub remote_info: anime::Anime,
+    // todo: display in interface
+    #[allow(unused)]
+    pub local_episodes: episode::Set,
+    // todo: display in interface
+    #[allow(unused)]
+    pub unpaired_local_episodes: episode::Set,
+    // todo: hook up to remote api
+    pub in_sync: bool,
 }

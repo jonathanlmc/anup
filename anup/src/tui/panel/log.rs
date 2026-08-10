@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crossterm::event::KeyCode;
 use ratatui::widgets::{Block, Scrollbar, ScrollbarOrientation, ScrollbarState};
 
@@ -24,7 +26,7 @@ impl tui::Panel for Log {
         event: crossterm::event::KeyEvent,
         _info: &tui::state::Info,
         state: &mut tui::State,
-        render_trigger: &tui::RenderTrigger,
+        render_trigger: Arc<tui::RenderTrigger>,
     ) -> tui::event::Result {
         if !event.is_press() {
             return tui::event::Result::Continue(None);

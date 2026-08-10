@@ -4,7 +4,7 @@ pub mod root;
 
 pub use automatch::AutomatchResult;
 pub use episode::Episode;
-pub use root::{LocalRoot, RemoteSeasonPairing, RootPairing, local};
+pub use root::{LocalRoot, PairedSeason, RemoteSeasonPairing, RootPairing, local};
 
 type LocalSeriesInfo<'a> = medinpar::Series<'a>;
 type LocalEpisodeInfo = medinpar::Episode<Format>;

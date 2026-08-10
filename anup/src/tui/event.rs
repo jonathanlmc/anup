@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use tap::TapFallible;
 use tokio::sync::{mpsc, oneshot};
 
@@ -19,7 +21,7 @@ impl AppEvent {
         info: &mut tui::state::Info,
         state: &mut tui::State,
         panel_stack: &mut tui::panel::Stack,
-        render_trigger: &tui::RenderTrigger,
+        render_trigger: Arc<tui::RenderTrigger>,
     ) -> Result {
         // don't log log message events, as it could put us in an infinite loop if the user
         // is actively viewing them
@@ -34,12 +36,16 @@ impl AppEvent {
                     info,
                     state,
                     panel_stack.current(),
-                    render_trigger,
+                    render_trigger.clone(),
                 )
                 .await
             }
             Self::SeriesList(event) => {
-                state.series_list.process_event(event, render_trigger).await;
+                state
+                    .series_list
+                    .process_event(event, &render_trigger)
+                    .await;
+
                 (Result::Continue(None), None)
             }
             Self::LogMessage(msg) => {
@@ -72,7 +78,7 @@ impl AppEvent {
                 notif_event,
                 info,
                 state,
-                render_trigger,
+                &render_trigger,
             );
         }
 
@@ -84,7 +90,7 @@ impl AppEvent {
         info: &mut tui::state::Info,
         state: &mut tui::State,
         panel: &mut dyn tui::Panel,
-        render_trigger: &tui::RenderTrigger,
+        render_trigger: Arc<tui::RenderTrigger>,
     ) -> (Result, Option<AppEventNotification>) {
         use crossterm::event::Event;
 

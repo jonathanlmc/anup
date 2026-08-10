@@ -48,10 +48,10 @@ impl<'a> SeriesList<'a> {
         ));
 
         match &season_data {
-            series::RemoteSeasonPairing::Paired { remote_info, .. } => {
+            series::RemoteSeasonPairing::Paired(season) => {
                 // todo: use configured title
                 format_line.push_span(Span::styled(
-                    &remote_info.title.romaji,
+                    &season.remote_info.title.romaji,
                     Style::default().gray(),
                 ));
             }
@@ -115,7 +115,7 @@ impl<'a> SeriesList<'a> {
     fn rendered_series_formats(series_data: &series::RootPairing) -> widgets::List<'_> {
         let items = series_data
             .all_format_seasons()
-            .map(|s| Self::rendered_single_series_format(*s.format, *s.season, s.pairing));
+            .map(|s| Self::rendered_single_series_format(s.format, s.season, s.pairing));
 
         widgets::List::new(items)
     }
@@ -332,5 +332,20 @@ impl<'a> FrameData<'a> {
         } else {
             rem as usize
         }
+    }
+
+    pub fn get_selected_paired_season(&self) -> Option<&series::PairedSeason> {
+        let Self::SeriesFormats {
+            selected_season, ..
+        } = self
+        else {
+            return None;
+        };
+
+        let series::RemoteSeasonPairing::Paired(season) = selected_season else {
+            return None;
+        };
+
+        Some(season)
     }
 }

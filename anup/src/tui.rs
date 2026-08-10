@@ -2,6 +2,7 @@ pub mod panel;
 pub mod state;
 
 mod event;
+mod image_protocol;
 mod widget;
 
 use std::{
@@ -14,6 +15,7 @@ use anyhow::Context;
 use futures::StreamExt;
 
 pub use event::{AppEvent, AppEventNotification, EventsChannel};
+pub use image_protocol::ImageProtocolCache;
 pub use panel::Panel;
 pub use state::State;
 
@@ -42,6 +44,9 @@ impl App {
             size: terminal
                 .size()
                 .context("failed to query size of terminal")?,
+            image_protocol_picker: ratatui_image::picker::Picker::from_query_stdio()
+                .context("failed to determine terminal graphics capabilities")
+                .map(Arc::new)?,
         };
 
         let render_trigger = Arc::new(RenderTrigger::new());
@@ -107,7 +112,7 @@ impl App {
                 &mut self.info,
                 &mut self.state,
                 &mut self.panel_stack,
-                &self.render_trigger,
+                self.render_trigger.clone(),
             )
             .await;
 

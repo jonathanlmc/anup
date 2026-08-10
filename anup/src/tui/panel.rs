@@ -1,7 +1,7 @@
 pub mod log;
 pub mod main;
 
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 
 use crossterm::event::KeyEvent;
 
@@ -16,7 +16,7 @@ pub trait Panel: Debug + Send + Sync {
         _event: KeyEvent,
         _info: &tui::state::Info,
         _state: &mut tui::State,
-        _render_trigger: &tui::RenderTrigger,
+        _render_trigger: Arc<tui::RenderTrigger>,
     ) -> tui::event::Result {
         tui::event::Result::Continue(None)
     }

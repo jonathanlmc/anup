@@ -260,12 +260,12 @@ async fn pair_local_episodes_to_remote_seasons(
     let Some(mut episode_offset) = episode_offset else {
         season_map.insert(
             season_num,
-            series::RemoteSeasonPairing::Paired {
+            series::RemoteSeasonPairing::Paired(series::PairedSeason {
                 remote_info: anime,
                 local_episodes: episodes,
                 unpaired_local_episodes: Default::default(),
                 in_sync: false,
-            },
+            }),
         );
 
         return Ok(season_map);
@@ -275,14 +275,14 @@ async fn pair_local_episodes_to_remote_seasons(
     // for the first resolved season
     season_map.insert(
         season_num,
-        series::RemoteSeasonPairing::Paired {
+        series::RemoteSeasonPairing::Paired(series::PairedSeason {
             remote_info: anime,
             local_episodes: episodes
                 .extract_if(|ep| ep.info.number <= episode_offset)
                 .collect(),
             unpaired_local_episodes: Default::default(),
             in_sync: false,
-        },
+        }),
     );
 
     let mut current_sequel = anime_id;
@@ -347,12 +347,12 @@ async fn pair_local_episodes_to_remote_seasons(
 
         season_map.insert(
             season_num,
-            series::RemoteSeasonPairing::Paired {
+            series::RemoteSeasonPairing::Paired(series::PairedSeason {
                 remote_info: sequel,
                 local_episodes: sequel_episodes,
                 unpaired_local_episodes: Default::default(),
                 in_sync: false,
-            },
+            }),
         );
 
         episode_offset += num_sequel_eps.unwrap_or(0);

@@ -18,6 +18,12 @@
           buildInputs = [
             pkg-config
             openssl.dev
+
+            # for the `ratatui-image` crate
+            chafa.dev
+            glib.dev
+            libsysprof-capture
+            pcre2.dev
           ];
         };
       }
