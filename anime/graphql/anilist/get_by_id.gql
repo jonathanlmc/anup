@@ -11,5 +11,8 @@ query ($id: Int) {
             episode
         }
         format
+        coverImage {
+            extraLarge
+        }
     }
 }

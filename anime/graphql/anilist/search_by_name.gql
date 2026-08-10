@@ -12,6 +12,9 @@ query ($search: String) {
                 episode
             }
             format
+            coverImage {
+                extraLarge
+            }
         }
     }
 }

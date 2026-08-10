@@ -8,6 +8,7 @@ pub type AnimeID = u32;
 pub struct Anime {
     pub id: MediaID,
     pub title: Title,
+    pub cover_image_url: CoverImage,
     pub episodes: Option<u32>,
     pub format: Option<Format>,
 }
@@ -33,6 +34,13 @@ impl Title {
 #[derive(Copy, Clone, Debug, Hash, PartialOrd, Ord, PartialEq, Eq)]
 pub struct MediaID {
     pub anilist: Option<AnimeID>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoverImage {
+    /// URL pointing to the extra large cover image for the series.
+    pub extra_large: Option<String>,
 }
 
 #[derive(Debug, Copy, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]

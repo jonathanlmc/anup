@@ -10,7 +10,7 @@ use serde_json::json;
 use tap::{Pipe, Tap};
 
 use crate::{
-    MediaID, Title,
+    CoverImage, MediaID, Title,
     api::{AnimeID, AnimeInfo, Result, Service},
     macros::include_graphql,
 };
@@ -185,6 +185,7 @@ struct PagedResponseMediaItems {
 pub struct AnimeEntry {
     pub id: AnimeID,
     pub title: Title,
+    pub cover_image: CoverImage,
     pub episodes: Option<u32>,
     pub next_airing_episode: Option<NextAiringEpisode>,
     pub format: Option<SeriesFormat>,
@@ -205,6 +206,7 @@ impl From<AnimeEntry> for crate::Anime {
                 anilist: Some(value.id),
             },
             title: value.title,
+            cover_image_url: value.cover_image,
             episodes,
             format: value.format.map(Into::into),
         }
