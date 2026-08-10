@@ -263,7 +263,6 @@ async fn pair_local_episodes_to_remote_seasons(
             series::RemoteSeasonPairing::Paired(series::PairedSeason {
                 remote_info: anime,
                 local_episodes: episodes,
-                unpaired_local_episodes: Default::default(),
                 in_sync: false,
             }),
         );
@@ -280,7 +279,6 @@ async fn pair_local_episodes_to_remote_seasons(
             local_episodes: episodes
                 .extract_if(|ep| ep.info.number <= episode_offset)
                 .collect(),
-            unpaired_local_episodes: Default::default(),
             in_sync: false,
         }),
     );
@@ -350,7 +348,6 @@ async fn pair_local_episodes_to_remote_seasons(
             series::RemoteSeasonPairing::Paired(series::PairedSeason {
                 remote_info: sequel,
                 local_episodes: sequel_episodes,
-                unpaired_local_episodes: Default::default(),
                 in_sync: false,
             }),
         );

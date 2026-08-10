@@ -60,9 +60,6 @@ pub struct PairedSeason {
     // todo: display in interface
     #[allow(unused)]
     pub local_episodes: episode::Set,
-    // todo: display in interface
-    #[allow(unused)]
-    pub unpaired_local_episodes: episode::Set,
     // todo: hook up to remote api
     pub in_sync: bool,
 }
