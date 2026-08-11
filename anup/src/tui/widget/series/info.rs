@@ -274,7 +274,7 @@ mod failure_entry {
     }
 
     const fn category_name(error: &state::series_list::EntryError) -> &'static str {
-        use state::series_list::EntryError::{ParseError, Panic, Automatch};
+        use state::series_list::EntryError::{Automatch, Panic, ParseError};
 
         match error {
             ParseError(_) => "Local Parsing Error",
