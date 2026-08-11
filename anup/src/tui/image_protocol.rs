@@ -104,10 +104,11 @@ where
                     continue;
                 }
                 Some(state @ ProtocolState::Loaded(_)) => {
-                    let protocol = match mem::replace(state, ProtocolState::Loading) {
-                        ProtocolState::Loaded(protocol) => protocol,
+                    let ProtocolState::Loaded(protocol) =
+                        mem::replace(state, ProtocolState::Loading)
+                    else {
                         // safety: the outer match explicitly captures the loaded variant
-                        _ => unreachable!(),
+                        unreachable!();
                     };
 
                     state_change_trigger.notify_one();

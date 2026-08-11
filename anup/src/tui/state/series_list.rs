@@ -10,7 +10,7 @@ use crate::{series, tui};
 pub struct SeriesList(Vec<Entry>);
 
 impl SeriesList {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(Vec::new())
     }
 
@@ -40,7 +40,7 @@ impl SeriesList {
         false
     }
 
-    pub async fn process_event(&mut self, event: Event, render_trigger: &tui::RenderTrigger) {
+    pub fn process_event(&mut self, event: Event, render_trigger: &tui::RenderTrigger) {
         match event {
             Event::Create {
                 state,
@@ -82,7 +82,7 @@ pub enum EntryState {
 }
 
 impl EntryState {
-    pub fn get_resolved(&self) -> Option<&series::RootPairing> {
+    pub const fn get_resolved(&self) -> Option<&series::RootPairing> {
         match self {
             Self::Resolved(series) => Some(series),
             _ => None,

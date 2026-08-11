@@ -16,7 +16,7 @@ pub enum AppEvent {
 }
 
 impl AppEvent {
-    pub async fn process(
+    pub fn process(
         self,
         info: &mut tui::state::Info,
         state: &mut tui::State,
@@ -30,22 +30,15 @@ impl AppEvent {
         }
 
         let (result, notif_event) = match self {
-            Self::Terminal(event) => {
-                Self::process_terminal_event(
-                    event,
-                    info,
-                    state,
-                    panel_stack.current(),
-                    render_trigger.clone(),
-                )
-                .await
-            }
+            Self::Terminal(event) => Self::process_terminal_event(
+                event,
+                info,
+                state,
+                panel_stack.current(),
+                render_trigger.clone(),
+            ),
             Self::SeriesList(event) => {
-                state
-                    .series_list
-                    .process_event(event, &render_trigger)
-                    .await;
-
+                state.series_list.process_event(event, &render_trigger);
                 (Result::Continue(None), None)
             }
             Self::LogMessage(msg) => {
@@ -85,7 +78,7 @@ impl AppEvent {
         result
     }
 
-    async fn process_terminal_event(
+    fn process_terminal_event(
         event: crossterm::event::Event,
         info: &mut tui::state::Info,
         state: &mut tui::State,
@@ -157,7 +150,7 @@ impl EventSender {
 
         rx.await
             .tap_err(|err| {
-                tracing::error!(?err, "event did not send a reply when one was expected")
+                tracing::error!(?err, "event did not send a reply when one was expected");
             })
             .ok()
     }

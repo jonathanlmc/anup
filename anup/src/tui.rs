@@ -29,7 +29,7 @@ pub struct App {
     state: State,
     panel_stack: panel::Stack,
     render_trigger: Arc<RenderTrigger>,
-    app_events: EventsChannel,
+    events: EventsChannel,
 }
 
 impl App {
@@ -55,7 +55,7 @@ impl App {
 
         let app_events = EventsChannel::new(64);
 
-        tokio::spawn(App::process_log_events(
+        tokio::spawn(Self::process_log_events(
             app_events.new_sender(),
             log_message_rx,
         ));
@@ -71,7 +71,7 @@ impl App {
             state,
             panel_stack,
             render_trigger,
-            app_events,
+            events: app_events,
         })
     }
 
@@ -87,12 +87,12 @@ impl App {
                         break;
                     }
                 }
-                Some(app_event) = self.app_events.recv() => {
+                Some(app_event) = self.events.recv() => {
                     if self.process_app_event(app_event).await == ControlFlow::Break(()) {
                         break;
                     }
                 }
-                _ = self.render_trigger.notified() => {
+                () = self.render_trigger.notified() => {
                     let draw_result = self
                         .terminal
                         .draw(|frame| self.panel_stack.current().render(frame, &self.state));
@@ -107,19 +107,17 @@ impl App {
     }
 
     async fn process_app_event(&mut self, app_event: AppEvent) -> ControlFlow<()> {
-        let result = app_event
-            .process(
-                &mut self.info,
-                &mut self.state,
-                &mut self.panel_stack,
-                self.render_trigger.clone(),
-            )
-            .await;
+        let result = app_event.process(
+            &mut self.info,
+            &mut self.state,
+            &mut self.panel_stack,
+            self.render_trigger.clone(),
+        );
 
         match result {
             event::Result::Continue(event) => {
                 if let Some(event) = event
-                    && self.app_events.new_sender().send(event).await.is_err()
+                    && self.events.new_sender().send(event).await.is_err()
                 {
                     tracing::error!(
                         "app event channel was closed when trying to send follow up event"

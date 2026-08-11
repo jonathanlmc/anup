@@ -15,7 +15,7 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub enum AutomatchResult {
+pub enum PairState {
     Paired(series::RootPairing),
     Unpaired(series::LocalRoot),
 }
@@ -46,10 +46,13 @@ pub enum AutomatchResult {
 /// * `Title - 07` -> First episode of season 3, or S03E01.
 /// * `Title - 08` -> S03E02
 /// * `Title - 09` -> S03E03
-pub async fn all_formats_and_seasons<S: anime::api::Service>(
+pub async fn all_formats_and_seasons<S>(
     local_series: series::LocalRoot,
     anime_service: &S,
-) -> Result<AutomatchResult> {
+) -> Result<PairState>
+where
+    S: anime::api::Service + Send + Sync,
+{
     let searched_anime = anime_service
         .search_by_name(&crate::REQWEST_CLIENT, &local_series.parsed_name)
         .await?
@@ -59,14 +62,14 @@ pub async fn all_formats_and_seasons<S: anime::api::Service>(
     let scored_formats = ScoredFormats::from_remote_anime(&local_series, searched_anime.iter());
 
     if scored_formats.is_empty() {
-        return Ok(AutomatchResult::Unpaired(local_series));
+        return Ok(PairState::Unpaired(local_series));
     }
 
     let series_root = scored_formats
         .pair_formats_to_new_series_root(local_series, searched_anime, anime_service)
         .await?;
 
-    Ok(AutomatchResult::Paired(series_root))
+    Ok(PairState::Paired(series_root))
 }
 
 #[derive(Debug)]
@@ -105,7 +108,7 @@ impl ScoredFormats {
                 .map(|anime_title| {
                     (strsim::jaro(&local_name_lower, &anime_title.to_ascii_lowercase())
                         * 100.
-                        * SCORE_SCALE as f64) as u32
+                        * f64::from(SCORE_SCALE)) as u32
                 })
                 .max()
                 .unwrap_or_default();
@@ -188,12 +191,15 @@ impl ScoredFormats {
     ///
     /// This will resolve any continuous seasons detected in any
     /// of the local series formats as well, and may take a while to complete.
-    async fn pair_formats_to_new_series_root(
+    async fn pair_formats_to_new_series_root<S>(
         self,
         mut local_series: series::LocalRoot,
         mut anime_entries: IndexMap<anime::AnimeID, anime::Anime>,
-        anime_service: &impl anime::api::Service,
-    ) -> Result<series::RootPairing> {
+        anime_service: &S,
+    ) -> Result<series::RootPairing>
+    where
+        S: anime::api::Service + Send + Sync,
+    {
         let mut series = series::RootPairing::new(local_series.parsed_name);
 
         for (format, entry) in self.best_format_matches {
@@ -236,12 +242,15 @@ impl ScoredFormats {
 ///
 /// If any extra episodes are present that do not map to a season, they will
 /// be inserted into season 0 within the map.
-async fn pair_local_episodes_to_remote_seasons(
+async fn pair_local_episodes_to_remote_seasons<S>(
     anime_id: anime::AnimeID,
     anime: anime::Anime,
     mut episodes: episode::Set,
-    anime_service: &impl anime::api::Service,
-) -> Result<series::root::SeasonMap> {
+    anime_service: &S,
+) -> Result<series::root::SeasonMap>
+where
+    S: anime::api::Service + Send + Sync,
+{
     let highest_episode_num = episodes.iter().map(|ep| ep.info.number).max().unwrap_or(0);
 
     // calculate an episode offset if the highest episode number exceeds

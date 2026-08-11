@@ -13,7 +13,7 @@ pub struct Log {
 }
 
 impl Log {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             scroll_offset: None,
         }

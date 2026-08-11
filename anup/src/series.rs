@@ -2,7 +2,7 @@ pub mod automatch;
 pub mod episode;
 pub mod root;
 
-pub use automatch::AutomatchResult;
+pub use automatch::PairState;
 pub use episode::Episode;
 pub use root::{LocalRoot, PairedSeason, RemoteSeasonPairing, RootPairing, local};
 

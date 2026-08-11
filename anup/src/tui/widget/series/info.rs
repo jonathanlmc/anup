@@ -14,7 +14,7 @@ pub struct SeriesInfo<'a> {
 }
 
 impl<'a> SeriesInfo<'a> {
-    pub fn new(entry: Option<&'a state::series_list::Entry>) -> Self {
+    pub const fn new(entry: Option<&'a state::series_list::Entry>) -> Self {
         Self { entry, block: None }
     }
 
@@ -88,7 +88,7 @@ impl<'a> SeriesInfo<'a> {
             configured anime API service.",
             area,
             buf,
-        )
+        );
     }
 
     fn render_unresolved_series(series: &series::LocalRoot, area: Rect, buf: &mut Buffer) {
@@ -100,7 +100,7 @@ impl<'a> SeriesInfo<'a> {
             it by pressing Ctrl + P (WIP).",
             area,
             buf,
-        )
+        );
     }
 }
 
@@ -118,17 +118,17 @@ impl ratatui::widgets::Widget for SeriesInfo<'_> {
             Some(EntryState::Detected) => Self::render_detected_series(inner_area, buf),
             Some(EntryState::Scanning) => Self::render_scanning_series(inner_area, buf),
             Some(EntryState::Resolving(series)) => {
-                Self::render_resolving_series(series, inner_area, buf)
+                Self::render_resolving_series(series, inner_area, buf);
             }
             Some(EntryState::Resolved(series)) => {
                 // todo: display info for selected season when they are being viewed
-                resolved_series_entry::render(series, inner_area, buf)
+                resolved_series_entry::render(series, inner_area, buf);
             }
             Some(EntryState::Failure { error, .. }) => {
-                failure_entry::render(error, inner_area, buf)
+                failure_entry::render(error, inner_area, buf);
             }
             Some(EntryState::Unresolved(series)) => {
-                Self::render_unresolved_series(series, inner_area, buf)
+                Self::render_unresolved_series(series, inner_area, buf);
             }
             // todo: require entry state in `SeriesInfo` constructor?
             None => (),
@@ -139,7 +139,7 @@ impl ratatui::widgets::Widget for SeriesInfo<'_> {
 mod local_series_info {
     use super::*;
 
-    fn build_info_text<'a>(series: &'a series::LocalRoot) -> Text<'a> {
+    fn build_info_text(series: &series::LocalRoot) -> Text<'_> {
         let mut info_text = Text::from(Span::styled("Path: ", Style::default().bold()));
 
         info_text.push_span(Span::styled(
@@ -246,7 +246,7 @@ mod info_panel {
         );
     }
 
-    pub fn build_hint<'a>(text: &'a str) -> Paragraph<'a> {
+    pub fn build_hint(text: &str) -> Paragraph<'_> {
         Paragraph::new(Text::styled(text, Style::default().dark_gray()))
             .wrap(Wrap { trim: false })
             .centered()
@@ -256,7 +256,7 @@ mod info_panel {
 mod failure_entry {
     use super::*;
 
-    fn build_info_text<'a>(error: &'a state::series_list::EntryError) -> Text<'a> {
+    fn build_info_text(error: &state::series_list::EntryError) -> Text<'_> {
         let mut info_text = Text::from(Span::styled("Type: ", Style::default().bold()));
         info_text.push_span(Span::styled(
             category_name(error),
@@ -273,8 +273,8 @@ mod failure_entry {
         info_text
     }
 
-    fn category_name(error: &state::series_list::EntryError) -> &'static str {
-        use state::series_list::EntryError::*;
+    const fn category_name(error: &state::series_list::EntryError) -> &'static str {
+        use state::series_list::EntryError::{ParseError, Panic, Automatch};
 
         match error {
             ParseError(_) => "Local Parsing Error",
@@ -312,7 +312,7 @@ mod failure_entry {
 mod resolved_series_entry {
     use super::*;
 
-    fn build_format_status_list<'a>(series: &'a series::RootPairing) -> Text<'a> {
+    fn build_format_status_list(series: &series::RootPairing) -> Text<'_> {
         let mut lines = Text::default();
 
         for (fmt, seasons) in &series.pairings {

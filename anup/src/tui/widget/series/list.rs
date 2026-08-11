@@ -23,7 +23,7 @@ impl<'a> SeriesList<'a> {
     ///
     /// The frame data can be obtained from the persisted [`ViewState`] by calling
     /// its [`ViewState::frame_data`] method.
-    pub fn new(frame_data: &'a FrameData<'a>) -> Self {
+    pub const fn new(frame_data: &'a FrameData<'a>) -> Self {
         Self {
             frame_data,
             block: None,
@@ -35,11 +35,11 @@ impl<'a> SeriesList<'a> {
         self
     }
 
-    fn rendered_single_series_format<'b>(
+    fn rendered_single_series_format(
         format: series::Format,
         season_num: u16,
-        season_data: &'b series::RemoteSeasonPairing,
-    ) -> Line<'b> {
+        season_data: &series::RemoteSeasonPairing,
+    ) -> Line<'_> {
         let mut format_line = Line::default();
 
         format_line.push_span(Span::styled(
@@ -67,7 +67,7 @@ impl<'a> SeriesList<'a> {
     }
 
     fn format_prefix_str(format: series::Format, season_num: u16) -> Cow<'static, str> {
-        use series::Format::*;
+        use series::Format::{Movie, Music, Ona, Ova, Special, Tv};
 
         match format {
             Tv => format!("TV{season_num} ").into(),
@@ -158,7 +158,7 @@ pub enum ViewState {
 }
 
 impl ViewState {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self::RootSeries { selected: 0 }
     }
 
@@ -179,7 +179,7 @@ impl ViewState {
         })
     }
 
-    pub fn apply_frame_data(&mut self, data: FrameData<'_>) {
+    pub const fn apply_frame_data(&mut self, data: FrameData<'_>) {
         match data {
             FrameData::RootSeries { selected_index, .. } => {
                 *self = Self::RootSeries {
@@ -199,7 +199,7 @@ impl ViewState {
         }
     }
 
-    pub fn select_root_series(&mut self) {
+    pub const fn select_root_series(&mut self) {
         match self {
             Self::RootSeries { .. } => (),
             Self::SeriesFormats { root, .. } => {
@@ -208,7 +208,7 @@ impl ViewState {
         }
     }
 
-    pub fn select_series_formats(&mut self) {
+    pub const fn select_series_formats(&mut self) {
         match self {
             Self::RootSeries { selected } => {
                 *self = Self::SeriesFormats {
@@ -220,25 +220,24 @@ impl ViewState {
         }
     }
 
-    pub fn select_next(&mut self) {
+    pub const fn select_next(&mut self) {
         *self.selected_mut() += 1;
     }
 
-    pub fn select_previous(&mut self) {
+    pub const fn select_previous(&mut self) {
         *self.selected_mut() -= 1;
     }
 
-    fn root_series_index(&self) -> i32 {
+    const fn root_series_index(&self) -> i32 {
         match self {
             Self::RootSeries { selected } => *selected,
             Self::SeriesFormats { root, .. } => *root,
         }
     }
 
-    fn selected_mut(&mut self) -> &mut i32 {
+    const fn selected_mut(&mut self) -> &mut i32 {
         match self {
-            Self::RootSeries { selected } => selected,
-            Self::SeriesFormats { selected, .. } => selected,
+            Self::RootSeries { selected } | Self::SeriesFormats { selected, .. } => selected,
         }
     }
 }
@@ -288,7 +287,7 @@ impl<'a> FrameData<'a> {
                     .tap_err(|_| {
                         tracing::warn!(
                             "stored root index for series format listing is not a valid usize"
-                        )
+                        );
                     })
                     .ok()?;
 
@@ -298,7 +297,7 @@ impl<'a> FrameData<'a> {
                 let len = resolved_entry
                     .pairings
                     .values()
-                    .map(|seasons| seasons.len())
+                    .map(indexmap::IndexMap::len)
                     .sum();
 
                 let selected_index = Self::wrap_index_around(*unwrapped_selected, len);
@@ -334,7 +333,7 @@ impl<'a> FrameData<'a> {
         }
     }
 
-    pub fn get_selected_paired_season(&self) -> Option<&series::PairedSeason> {
+    pub const fn get_selected_paired_season(&self) -> Option<&series::PairedSeason> {
         let Self::SeriesFormats {
             selected_season, ..
         } = self

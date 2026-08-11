@@ -97,12 +97,10 @@ pub async fn resolve_all(event_chan: event::EventSender, dir: PathBuf) -> anyhow
     }
 
     while let Some(res) = task_set.join_next().await {
-        if let Err(err) = res {
-            if err.is_panic() {
-                tracing::warn!("failed to resolve series: {:?}", err.into_panic());
-            } else {
-                continue;
-            }
+        if let Err(err) = res
+            && err.is_panic()
+        {
+            tracing::warn!("failed to resolve series: {:?}", err.into_panic());
         }
     }
 
@@ -125,47 +123,10 @@ async fn resolve_new_series(
         )
         .await?;
 
-    let local_series = 'blk: {
-        let res = tokio::task::spawn_blocking(move || series::LocalRoot::parse_dir(path)).await;
-
-        let entry_error = match res {
-            Ok(Ok(series)) => break 'blk series,
-            Ok(Err(err)) => err.into(),
-            Err(err) if err.is_panic() => {
-                let err = err.into_panic();
-
-                let msg = if let Some(msg) = err.downcast_ref::<String>().cloned() {
-                    Cow::Owned(msg)
-                } else if let Some(&msg) = err.downcast_ref::<&str>() {
-                    msg.into()
-                } else {
-                    "unknown".into()
-                };
-
-                state::series_list::EntryError::Panic(msg)
-            }
-            Err(_) => {
-                tracing::trace!(%filename, "received cancel signal for series resolve");
-                return Ok(());
-            }
-        };
-
-        let failure_msg = format!("{entry_error}");
-
-        event_chan
-            .send(
-                Event::Update {
-                    stable_index: inserted_series_index,
-                    state: EntryState::Failure {
-                        name: filename,
-                        error: entry_error,
-                    },
-                }
-                .into(),
-            )
-            .await?;
-
-        anyhow::bail!(failure_msg);
+    let Some(local_series) =
+        parse_local_series(path, filename, &event_chan, inserted_series_index).await?
+    else {
+        return Ok(());
     };
 
     event_chan
@@ -184,41 +145,15 @@ async fn resolve_new_series(
     let series_result =
         series::automatch::all_formats_and_seasons(local_series, &anime::api::AniList).await;
 
-    let series = match series_result {
-        Ok(series::AutomatchResult::Paired(series)) => series,
-        Ok(series::AutomatchResult::Unpaired(local_series)) => {
-            event_chan
-                .send(
-                    Event::Update {
-                        stable_index: inserted_series_index,
-                        state: EntryState::Unresolved(local_series),
-                    }
-                    .into(),
-                )
-                .await?;
-
-            return Ok(());
-        }
-        Err(err) => {
-            let err = err.into();
-            let failure_msg = format!("{err}");
-
-            event_chan
-                .send(
-                    Event::Update {
-                        stable_index: inserted_series_index,
-                        state: EntryState::Failure {
-                            name: local_name,
-                            error: err,
-                        },
-                    }
-                    .into(),
-                )
-                .await
-                .ok();
-
-            anyhow::bail!(failure_msg);
-        }
+    let Some(series) = process_automatch_result(
+        series_result,
+        local_name,
+        &event_chan,
+        inserted_series_index,
+    )
+    .await?
+    else {
+        return Ok(());
     };
 
     event_chan
@@ -233,4 +168,100 @@ async fn resolve_new_series(
         .ok();
 
     Ok(())
+}
+
+async fn parse_local_series(
+    path: PathBuf,
+    filename: String,
+    event_chan: &event::EventSender,
+    inserted_series_index: usize,
+) -> anyhow::Result<Option<series::LocalRoot>> {
+    let res = tokio::task::spawn_blocking(move || series::LocalRoot::parse_dir(path)).await;
+
+    // we can return now if the series was successfully parsed; all other remaining code is for error handling
+    let entry_error = match res {
+        Ok(Ok(series)) => return Ok(Some(series)),
+        Ok(Err(err)) => err.into(),
+        Err(err) if err.is_panic() => {
+            let err = err.into_panic();
+
+            let msg = err.downcast_ref::<String>().cloned().map_or_else(
+                || {
+                    if let Some(&msg) = err.downcast_ref::<&str>() {
+                        msg.into()
+                    } else {
+                        "unknown".into()
+                    }
+                },
+                Cow::Owned,
+            );
+
+            state::series_list::EntryError::Panic(msg)
+        }
+        Err(_) => {
+            tracing::trace!(%filename, "received cancel signal for series resolve");
+            return Ok(None);
+        }
+    };
+
+    let failure_msg = format!("{entry_error}");
+
+    event_chan
+        .send(
+            Event::Update {
+                stable_index: inserted_series_index,
+                state: EntryState::Failure {
+                    name: filename,
+                    error: entry_error,
+                },
+            }
+            .into(),
+        )
+        .await?;
+
+    anyhow::bail!(failure_msg);
+}
+
+async fn process_automatch_result(
+    series_result: series::automatch::Result<series::automatch::PairState>,
+    local_series_name: String,
+    event_chan: &event::EventSender,
+    inserted_series_index: usize,
+) -> anyhow::Result<Option<series::RootPairing>> {
+    match series_result {
+        Ok(series::PairState::Paired(series)) => Ok(Some(series)),
+        Ok(series::PairState::Unpaired(local_series)) => {
+            event_chan
+                .send(
+                    Event::Update {
+                        stable_index: inserted_series_index,
+                        state: EntryState::Unresolved(local_series),
+                    }
+                    .into(),
+                )
+                .await?;
+
+            Ok(None)
+        }
+        Err(err) => {
+            let err = err.into();
+            let failure_msg = format!("{err}");
+
+            event_chan
+                .send(
+                    Event::Update {
+                        stable_index: inserted_series_index,
+                        state: EntryState::Failure {
+                            name: local_series_name,
+                            error: err,
+                        },
+                    }
+                    .into(),
+                )
+                .await
+                .ok();
+
+            anyhow::bail!(failure_msg);
+        }
+    }
 }

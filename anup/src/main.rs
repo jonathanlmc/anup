@@ -1,3 +1,12 @@
+#![warn(clippy::pedantic, clippy::nursery)]
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::wildcard_imports,
+    clippy::needless_pass_by_value,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_wrap
+)]
+
 mod image_cache;
 mod series;
 mod tui;

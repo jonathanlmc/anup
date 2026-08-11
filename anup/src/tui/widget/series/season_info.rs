@@ -18,7 +18,7 @@ pub struct SeasonInfo<'a> {
 }
 
 impl<'a> SeasonInfo<'a> {
-    pub fn new(
+    pub const fn new(
         pairing: Option<&'a series::RemoteSeasonPairing>,
         cover_image: Option<&'a mut tui::image_protocol::ProtocolState>,
     ) -> Self {
@@ -49,7 +49,7 @@ impl Widget for SeasonInfo<'_> {
                 buf,
             ),
             Some(series::RemoteSeasonPairing::Unpaired(_)) => {
-                unpaired_season_info::render(inner_area, buf)
+                unpaired_season_info::render(inner_area, buf);
             }
             None => {}
         }
@@ -65,7 +65,7 @@ mod paired_season_info {
 
     use super::*;
 
-    fn build_info_text<'a>(anime: &'a anime::Anime) -> Text<'a> {
+    fn build_info_text(anime: &anime::Anime) -> Text<'_> {
         let mut info_text = Text::default();
 
         info_text.push_line(build_episodes_line(anime.episodes));
@@ -189,10 +189,10 @@ mod paired_season_info {
 
         match cover_image {
             Some(tui::image_protocol::ProtocolState::Loading) | None => {
-                render_cover_image_placeholder(false, cover_area, buf)
+                render_cover_image_placeholder(false, cover_area, buf);
             }
             Some(tui::image_protocol::ProtocolState::Failed) => {
-                render_cover_image_placeholder(true, cover_area, buf)
+                render_cover_image_placeholder(true, cover_area, buf);
             }
             Some(tui::image_protocol::ProtocolState::Loaded(protocol)) => {
                 ratatui_image::StatefulImage::new()

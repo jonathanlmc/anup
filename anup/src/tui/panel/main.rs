@@ -160,7 +160,7 @@ impl tui::Panel for Main {
                     series::RemoteSeasonPairing::Paired(season) => {
                         series_cover_images.get_mut(&season.remote_info.id)
                     }
-                    _ => None,
+                    series::RemoteSeasonPairing::Unpaired(_) => None,
                 };
 
                 let info_panel = SeasonInfo::new(Some(*selected_season), cover_image)

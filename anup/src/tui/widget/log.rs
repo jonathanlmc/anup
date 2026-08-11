@@ -13,20 +13,20 @@ pub struct Log<'a> {
 }
 
 impl<'a> Log<'a> {
-    pub fn new(lines: &'a VecDeque<String>) -> Self {
+    pub const fn new(lines: &'a VecDeque<String>) -> Self {
         Self {
             lines,
             scroll_offset: 0,
         }
     }
 
-    pub fn scroll(mut self, offset: usize) -> Self {
+    pub const fn scroll(mut self, offset: usize) -> Self {
         self.scroll_offset = offset;
         self
     }
 }
 
-impl<'a> ratatui::widgets::Widget for Log<'a> {
+impl ratatui::widgets::Widget for Log<'_> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         use ansi_to_tui::IntoText;
 
@@ -44,10 +44,12 @@ impl<'a> ratatui::widgets::Widget for Log<'a> {
 
             self.lines
                 .range(visible_range)
-                .map(|line| line.as_str())
+                .map(std::string::String::as_str)
                 .collect::<String>()
         };
 
+        // cannot move `lines` with `map_or_else`
+        #[allow(clippy::option_if_let_else)]
         let text = match lines.to_text() {
             Ok(text) => text,
             Err(_) => Text::from(lines),
