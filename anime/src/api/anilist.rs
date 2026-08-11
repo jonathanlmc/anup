@@ -1,4 +1,4 @@
-//! Integration with the AniList GraphQL API.
+//! Integration with the `AniList` GraphQL API.
 
 #[cfg(feature = "rate_limit")]
 pub mod rate_limit;
@@ -15,7 +15,7 @@ use crate::{
     macros::include_graphql,
 };
 
-/// AniList API integration.
+/// `AniList` API integration.
 pub struct AniList;
 
 impl Service for AniList {

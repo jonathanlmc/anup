@@ -35,7 +35,8 @@ pub enum Error {
 impl Error {
     /// Returns `true` if this error was a request failure with the given status.
     #[inline]
-    pub fn request_failed_with_status(&self, status: u16) -> bool {
+    #[must_use]
+    pub const fn request_failed_with_status(&self, status: u16) -> bool {
         matches!(
             self,
             Self::RequestFailed(RequestError { status: err_status, .. })

@@ -1,4 +1,4 @@
-//! Global rate limiting controls for AniList.
+//! Global rate limiting controls for `AniList`.
 //!
 //! The effective rate limit can be accessed / changed with the [`REFILL_PERMIT_EVERY`] mutex, and
 //! the initial / continuous burst amount can be controlled with the [`BURST_AMOUNT`] mutex. Care
@@ -7,7 +7,7 @@
 //!
 //! ## "Why are global mutexes used?"
 //!
-//! The AniList API does not require authentication, so scoping rate limits to an individual AniList API instance
+//! The `AniList` API does not require authentication, so scoping rate limits to an individual `AniList` API instance
 //! could lead to rate limits being hit if multiple API instances are used throughout an application (ex. to manage
 //! multiple accounts).
 
@@ -22,11 +22,11 @@ use tokio::sync::{Notify, Semaphore};
 ///
 /// This default factors in the default burst request limit, and
 /// adds an additional 100 milliseconds to avoid getting rate limited
-/// when sending exactly 30 requests per minute (AniList's current limit
+/// when sending exactly 30 requests per minute (`AniList`'s current limit
 /// at the time of writing).
 ///
-/// AniList documents its current limit here:
-/// https://docs.anilist.co/guide/rate-limiting#rate-limiting
+/// `AniList` documents its current limit here:
+/// <https://docs.anilist.co/guide/rate-limiting#rate-limiting>
 pub static REFILL_PERMIT_EVERY: Mutex<Duration> = Mutex::new(Duration::from_millis(
     60 /
     // account for the burst limit
@@ -46,8 +46,10 @@ const DEFAULT_BURST_AMOUNT: usize = 10;
 static PERMIT_ACQUIRED: LazyLock<Arc<Notify>> = LazyLock::new(|| Arc::new(Notify::new()));
 
 static RATE_LIMIT_PERMITS: LazyLock<Arc<Semaphore>> = LazyLock::new(|| {
-    let burst_amount = BURST_AMOUNT.lock().unwrap_or_else(PoisonError::into_inner);
-    let semaphore = Arc::new(Semaphore::new(*burst_amount));
+    let semaphore = {
+        let burst_amount = BURST_AMOUNT.lock().unwrap_or_else(PoisonError::into_inner);
+        Arc::new(Semaphore::new(*burst_amount))
+    };
 
     let sem_clone = semaphore.clone();
     let notif_clone = PERMIT_ACQUIRED.clone();
@@ -78,6 +80,7 @@ async fn refill_permits(semaphore: Arc<Semaphore>, permit_acquired: Arc<Notify>)
 }
 
 /// Acquire a permit to execute a request. This will wait until a permit is available if necessary.
+#[allow(clippy::missing_panics_doc)]
 pub async fn acquire_permit() {
     tracing::trace!("acquiring rate limit permit");
 

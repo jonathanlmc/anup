@@ -1,4 +1,4 @@
-//! Request helper for the AniList GraphQL API.
+//! Request helper for the `AniList` GraphQL API.
 
 use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::json;
@@ -8,10 +8,10 @@ use crate::api::{Error, RequestError, Result};
 #[cfg(feature = "rate_limit")]
 use super::rate_limit;
 
-/// Base URL for the AniList GraphQL endpoint.
+/// Base URL for the `AniList` GraphQL endpoint.
 pub const BASE_URL: &str = "https://graphql.anilist.co";
 
-/// Send a GraphQL request to the AniList API and deserialize the response
+/// Send a GraphQL request to the `AniList` API and deserialize the response
 /// to the given `T`.
 ///
 /// For high-level API queries, the [`AniList`](crate::api::anilist::AniList)
@@ -37,15 +37,15 @@ async fn send_request_impl(
     query: &str,
     variables: &serde_json::Value,
 ) -> Result<serde_json::Value> {
-    #[cfg(feature = "rate_limit")]
-    rate_limit::acquire_permit().await;
-
     #[derive(Debug, Deserialize)]
     struct Response {
         data: serde_json::Value,
         #[serde(default)]
         errors: Vec<RequestError>,
     }
+
+    #[cfg(feature = "rate_limit")]
+    rate_limit::acquire_permit().await;
 
     let body = json!({
         "query": query,

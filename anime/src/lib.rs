@@ -1,3 +1,6 @@
+#![warn(clippy::pedantic, clippy::nursery)]
+#![allow(clippy::missing_errors_doc)]
+
 use serde::Deserialize;
 
 pub mod api;
@@ -22,6 +25,7 @@ pub struct Title {
 
 impl Title {
     #[inline]
+    #[must_use]
     pub fn as_array(&self) -> [Option<&str>; 3] {
         [
             self.english.as_deref(),
