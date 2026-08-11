@@ -108,8 +108,8 @@ impl tui::Panel for Main {
             }
             KeyCode::Char('~') => {
                 let panel = Box::new(tui::panel::Log::new());
-                let event = tui::AppEvent::PushPanel(panel);
-                return tui::event::Result::Continue(Some(event));
+                let app_event = tui::AppEvent::PushPanel(panel);
+                return tui::event::Result::Continue(Some(app_event));
             }
             _ => return tui::event::Result::Continue(None),
         }

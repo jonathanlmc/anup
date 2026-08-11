@@ -1,4 +1,18 @@
-#![warn(clippy::pedantic, clippy::nursery)]
+#![warn(
+    clippy::pedantic,
+    clippy::nursery,
+    clippy::dbg_macro,
+    clippy::mod_module_files,
+    clippy::shadow_unrelated,
+    clippy::if_then_some_else_none,
+    clippy::redundant_type_annotations,
+    clippy::mutex_atomic,
+    clippy::print_stdout,
+    clippy::print_stderr,
+    clippy::redundant_test_prefix,
+    clippy::unnecessary_self_imports,
+    clippy::unneeded_field_pattern
+)]
 #![allow(
     clippy::cast_possible_truncation,
     clippy::wildcard_imports,
