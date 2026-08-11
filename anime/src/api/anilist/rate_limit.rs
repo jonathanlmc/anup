@@ -12,7 +12,10 @@
 //! multiple accounts).
 
 use std::{
-    sync::{Arc, LazyLock, Mutex, PoisonError},
+    sync::{
+        Arc, LazyLock, Mutex, PoisonError,
+        atomic::{self, AtomicUsize},
+    },
     time::Duration,
 };
 use tokio::sync::{Notify, Semaphore};
@@ -39,7 +42,7 @@ pub static REFILL_PERMIT_EVERY: Mutex<Duration> = Mutex::new(Duration::from_mill
 
 /// The maximum number of requests that can be sent in a burst, without any delays.
 /// Defaults to 10.
-pub static BURST_AMOUNT: Mutex<usize> = Mutex::new(DEFAULT_BURST_AMOUNT);
+pub static BURST_AMOUNT: AtomicUsize = AtomicUsize::new(DEFAULT_BURST_AMOUNT);
 
 const DEFAULT_BURST_AMOUNT: usize = 10;
 
@@ -47,8 +50,8 @@ static PERMIT_ACQUIRED: LazyLock<Arc<Notify>> = LazyLock::new(|| Arc::new(Notify
 
 static RATE_LIMIT_PERMITS: LazyLock<Arc<Semaphore>> = LazyLock::new(|| {
     let semaphore = {
-        let burst_amount = BURST_AMOUNT.lock().unwrap_or_else(PoisonError::into_inner);
-        Arc::new(Semaphore::new(*burst_amount))
+        let burst_amount = BURST_AMOUNT.load(atomic::Ordering::Relaxed);
+        Arc::new(Semaphore::new(burst_amount))
     };
 
     let sem_clone = semaphore.clone();
@@ -67,9 +70,7 @@ async fn refill_permits(semaphore: Arc<Semaphore>, permit_acquired: Arc<Notify>)
 
         tokio::time::sleep(sleep_dur).await;
 
-        let burst_amount = *BURST_AMOUNT.lock().unwrap_or_else(PoisonError::into_inner);
-
-        if semaphore.available_permits() < burst_amount {
+        if semaphore.available_permits() < BURST_AMOUNT.load(atomic::Ordering::Relaxed) {
             tracing::trace!("adding rate limit permit");
             semaphore.add_permits(1);
         } else {
