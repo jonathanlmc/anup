@@ -88,7 +88,7 @@ impl ScoredFormats {
     /// similarity to one of the provided anime.
     fn from_remote_anime<'a>(
         local_series: &series::LocalRoot,
-        anime_entries: impl Iterator<Item = (&'a anime::Id, &'a anime::Anime)>,
+        anime_entries: impl Iterator<Item = (&'a anime::Id, &'a anime::Info)>,
     ) -> Self {
         const SCORE_SCALE: u32 = 10_000;
         const CONFIDENT_SCORE: u32 = 70 * SCORE_SCALE;
@@ -193,7 +193,7 @@ impl ScoredFormats {
     async fn pair_formats_to_new_series_root<S>(
         self,
         mut local_series: series::LocalRoot,
-        mut anime_entries: IndexMap<anime::Id, anime::Anime>,
+        mut anime_entries: IndexMap<anime::Id, anime::Info>,
         anime_service: &S,
     ) -> Result<series::RootPairing>
     where
@@ -243,7 +243,7 @@ impl ScoredFormats {
 /// be inserted into season 0 within the map.
 async fn pair_local_episodes_to_remote_seasons<S>(
     anime_id: anime::Id,
-    anime: anime::Anime,
+    anime: anime::Info,
     mut episodes: episode::Set,
     anime_service: &S,
 ) -> Result<series::root::SeasonMap>

@@ -6,7 +6,7 @@ use serde::Deserialize;
 
 pub use anilist::AniList;
 
-use crate::{Anime, Id, PlainId};
+use crate::{Id, Info, PlainId};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -64,7 +64,7 @@ pub trait Service {
         &self,
         client: &reqwest::Client,
         id: PlainId,
-    ) -> impl Future<Output = Result<Option<Anime>>> + Send;
+    ) -> impl Future<Output = Result<Option<Info>>> + Send;
 
     /// Search for an anime by a partial name. An iterator with all matching entries
     /// will be returned on success.
@@ -72,7 +72,7 @@ pub trait Service {
         &self,
         client: &reqwest::Client,
         partial_name: &str,
-    ) -> impl Future<Output = Result<impl Iterator<Item = Anime>>> + Send;
+    ) -> impl Future<Output = Result<impl Iterator<Item = Info>>> + Send;
 
     fn sequel_id(
         &self,

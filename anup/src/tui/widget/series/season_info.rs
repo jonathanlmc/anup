@@ -65,7 +65,7 @@ mod paired_season_info {
 
     use super::*;
 
-    fn build_info_text(anime: &anime::Anime) -> Text<'_> {
+    fn build_info_text(anime: &anime::Info) -> Text<'_> {
         let mut info_text = Text::default();
 
         info_text.push_line(build_episodes_line(anime.episodes));
@@ -126,7 +126,7 @@ mod paired_season_info {
     }
 
     pub fn render(
-        anime: &anime::Anime,
+        anime: &anime::Info,
         in_sync: bool,
         cover_image: Option<&mut tui::image_protocol::ProtocolState>,
         area: Rect,

@@ -45,7 +45,7 @@ impl Id {
 }
 
 #[derive(Clone, Debug)]
-pub struct Anime {
+pub struct Info {
     pub id: Id,
     pub title: Title,
     pub cover_image_url: CoverImage,

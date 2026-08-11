@@ -10,7 +10,7 @@ use serde_json::json;
 use tap::{Pipe, Tap};
 
 use crate::{
-    Anime, CoverImage, Id, PlainId, Title,
+    CoverImage, Id, Info, PlainId, Title,
     api::{Result, Service},
     macros::include_graphql,
 };
@@ -19,7 +19,7 @@ use crate::{
 pub struct AniList;
 
 impl Service for AniList {
-    async fn get_by_id(&self, client: &reqwest::Client, id: PlainId) -> Result<Option<Anime>> {
+    async fn get_by_id(&self, client: &reqwest::Client, id: PlainId) -> Result<Option<Info>> {
         tracing::debug!(series_id = %id, "sending `get_by_id` request");
 
         request::send::<MediaItem<AnimeEntry>>(
@@ -41,7 +41,7 @@ impl Service for AniList {
             match r {
                 Ok(anime) => tracing::debug!(
                     target: "request",
-                    series_id = ?anime.as_ref().map(|a: &Anime| a.id),
+                    series_id = ?anime.as_ref().map(|i: &Info| i.id),
                     "`get_by_id` request finished successfully"
                 ),
                 Err(err) => tracing::debug!(
@@ -58,7 +58,7 @@ impl Service for AniList {
         &self,
         client: &reqwest::Client,
         partial_name: &str,
-    ) -> Result<impl Iterator<Item = Anime>> {
+    ) -> Result<impl Iterator<Item = Info>> {
         tracing::debug!(%partial_name, "sending `search_by_name` request");
 
         request::send::<PagedResponse<PagedResponseMediaItems>>(
@@ -187,7 +187,7 @@ struct AnimeEntry {
     format: Option<SeriesFormat>,
 }
 
-impl From<AnimeEntry> for crate::Anime {
+impl From<AnimeEntry> for crate::Info {
     fn from(value: AnimeEntry) -> Self {
         let episodes = value.episodes.or_else(|| {
             value.next_airing_episode.map(|n| {

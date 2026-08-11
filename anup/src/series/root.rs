@@ -56,7 +56,7 @@ pub enum RemoteSeasonPairing {
 
 #[derive(Debug)]
 pub struct PairedSeason {
-    pub remote_info: anime::Anime,
+    pub remote_info: anime::Info,
     // todo: display in interface
     #[allow(unused)]
     pub local_episodes: episode::Set,
