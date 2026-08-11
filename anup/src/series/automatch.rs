@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use anime::api::AnimeInfo;
 use indexmap::IndexMap;
 
 use crate::series::{self, episode};
@@ -56,7 +55,7 @@ where
     let searched_anime = anime_service
         .search_by_name(&crate::REQWEST_CLIENT, &local_series.parsed_name)
         .await?
-        .map(|info| (info.id(), info.into()))
+        .map(|info| (info.id, info))
         .collect::<IndexMap<_, _>>();
 
     let scored_formats = ScoredFormats::from_remote_anime(&local_series, searched_anime.iter());
@@ -75,7 +74,7 @@ where
 #[derive(Debug)]
 struct ScoredAnimeInfo {
     score: u32,
-    remote_id: anime::AnimeID,
+    remote_id: anime::Id,
 }
 
 struct ScoredFormats {
@@ -89,7 +88,7 @@ impl ScoredFormats {
     /// similarity to one of the provided anime.
     fn from_remote_anime<'a>(
         local_series: &series::LocalRoot,
-        anime_entries: impl Iterator<Item = (&'a anime::AnimeID, &'a anime::Anime)>,
+        anime_entries: impl Iterator<Item = (&'a anime::Id, &'a anime::Anime)>,
     ) -> Self {
         const SCORE_SCALE: u32 = 10_000;
         const CONFIDENT_SCORE: u32 = 70 * SCORE_SCALE;
@@ -155,7 +154,7 @@ impl ScoredFormats {
     /// Store the anime entry for the given format, and update the existing entry if the given
     /// score is better.
     fn store_best_format_entry(
-        anime_id: anime::AnimeID,
+        anime_id: anime::Id,
         local_format: series::Format,
         score: u32,
         format_scores: &mut HashMap<series::Format, ScoredAnimeInfo>,
@@ -194,7 +193,7 @@ impl ScoredFormats {
     async fn pair_formats_to_new_series_root<S>(
         self,
         mut local_series: series::LocalRoot,
-        mut anime_entries: IndexMap<anime::AnimeID, anime::Anime>,
+        mut anime_entries: IndexMap<anime::Id, anime::Anime>,
         anime_service: &S,
     ) -> Result<series::RootPairing>
     where
@@ -209,7 +208,7 @@ impl ScoredFormats {
             let Some(anime) = anime_entries.swap_remove(&anime_id) else {
                 tracing::debug!(
                     ?format,
-                    %anime_id,
+                    ?anime_id,
                     local_name = %series.name,
                     "encountered duplicate anime for format; not pairing format to any anime series"
                 );
@@ -243,7 +242,7 @@ impl ScoredFormats {
 /// If any extra episodes are present that do not map to a season, they will
 /// be inserted into season 0 within the map.
 async fn pair_local_episodes_to_remote_seasons<S>(
-    anime_id: anime::AnimeID,
+    anime_id: anime::Id,
     anime: anime::Anime,
     mut episodes: episode::Set,
     anime_service: &S,
@@ -297,16 +296,16 @@ where
     // now loop over each sequel to the first series and extract
     // its episode range into a new season
     while let Some(sequel_id) = anime_service
-        .sequel_id(&crate::REQWEST_CLIENT, current_sequel)
+        .sequel_id(&crate::REQWEST_CLIENT, current_sequel.plain())
         .await?
     {
         let Some(sequel) = anime_service
-            .get_by_id(&crate::REQWEST_CLIENT, sequel_id)
+            .get_by_id(&crate::REQWEST_CLIENT, sequel_id.plain())
             .await?
         else {
             tracing::warn!(
-                root_anime_id = %anime_id,
-                %sequel_id,
+                root_anime_id = ?anime_id,
+                ?sequel_id,
                 "found a series sequel, but its anime id does not exist"
             );
 
@@ -316,10 +315,9 @@ where
         current_sequel = sequel_id;
         season_num += 1;
 
-        let sequel = sequel.into();
         let num_sequel_eps = sequel.episodes;
 
-        tracing::debug!(%sequel_id, ?num_sequel_eps, "found sequel for series");
+        tracing::debug!(?sequel_id, ?num_sequel_eps, "found sequel for series");
 
         let sequel_episodes = episodes
             .extract_if(|ep| {
@@ -333,8 +331,8 @@ where
             // in the continuous seasons present locally, so try the next sequel
             if !episodes.is_empty() {
                 tracing::debug!(
-                    top_level_anime_id = %anime_id,
-                    %sequel_id,
+                    top_level_anime_id = ?anime_id,
+                    ?sequel_id,
                     ?num_sequel_eps,
                     "no local episodes present for current sequel; trying next sequel"
                 );
@@ -343,8 +341,8 @@ where
             }
 
             tracing::debug!(
-                top_level_anime_id = %anime_id,
-                %sequel_id,
+                top_level_anime_id = ?anime_id,
+                ?sequel_id,
                 ?num_sequel_eps,
                 "no local episodes left for sequel; ending season splitting"
             );

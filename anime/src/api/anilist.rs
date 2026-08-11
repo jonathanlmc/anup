@@ -10,8 +10,8 @@ use serde_json::json;
 use tap::{Pipe, Tap};
 
 use crate::{
-    CoverImage, MediaID, Title,
-    api::{AnimeID, AnimeInfo, Result, Service},
+    Anime, CoverImage, Id, PlainId, Title,
+    api::{Result, Service},
     macros::include_graphql,
 };
 
@@ -19,13 +19,7 @@ use crate::{
 pub struct AniList;
 
 impl Service for AniList {
-    type AnimeData = AnimeEntry;
-
-    async fn get_by_id(
-        &self,
-        client: &reqwest::Client,
-        id: AnimeID,
-    ) -> Result<Option<Self::AnimeData>> {
+    async fn get_by_id(&self, client: &reqwest::Client, id: PlainId) -> Result<Option<Anime>> {
         tracing::debug!(series_id = %id, "sending `get_by_id` request");
 
         request::send::<MediaItem<AnimeEntry>>(
@@ -35,7 +29,7 @@ impl Service for AniList {
         )
         .await
         .pipe(|res| match res {
-            Ok(m) => Ok(Some(m.media)),
+            Ok(m) => Ok(Some(m.media.into())),
             Err(err) if err.request_failed_with_status(404) => Ok(None),
             Err(err) => Err(err),
         })
@@ -47,7 +41,7 @@ impl Service for AniList {
             match r {
                 Ok(anime) => tracing::debug!(
                     target: "request",
-                    series_id = ?anime.as_ref().map(|a| a.id),
+                    series_id = ?anime.as_ref().map(|a: &Anime| a.id),
                     "`get_by_id` request finished successfully"
                 ),
                 Err(err) => tracing::debug!(
@@ -64,7 +58,7 @@ impl Service for AniList {
         &self,
         client: &reqwest::Client,
         partial_name: &str,
-    ) -> Result<impl Iterator<Item = Self::AnimeData>> {
+    ) -> Result<impl Iterator<Item = Anime>> {
         tracing::debug!(%partial_name, "sending `search_by_name` request");
 
         request::send::<PagedResponse<PagedResponseMediaItems>>(
@@ -73,7 +67,7 @@ impl Service for AniList {
             &json!({ "search": partial_name }),
         )
         .await
-        .map(|r| r.page.media.into_iter())
+        .map(|r| r.page.media.into_iter().map(Into::into))
         .tap(|r| {
             if !tracing::enabled!(target: "request", tracing::Level::DEBUG) {
                 return;
@@ -96,7 +90,7 @@ impl Service for AniList {
         })
     }
 
-    async fn sequel_id(&self, client: &reqwest::Client, id: AnimeID) -> Result<Option<AnimeID>> {
+    async fn sequel_id(&self, client: &reqwest::Client, id: PlainId) -> Result<Option<Id>> {
         tracing::debug!(%id, "sending `sequel_id` request");
 
         request::send::<MediaItem<MediaRelations>>(
@@ -107,7 +101,9 @@ impl Service for AniList {
         .await
         .map(|r| {
             r.media.relations.edges.into_iter().find_map(|edge| {
-                (edge.relation_type == RelationType::Sequel).then_some(edge.node.id)
+                (edge.relation_type == RelationType::Sequel)
+                    .then_some(edge.node.id)
+                    .map(Id::AniList)
             })
         })
         .tap(|r| {
@@ -158,7 +154,7 @@ struct MediaRelation {
 
 #[derive(Deserialize)]
 struct MediaRelationNode {
-    id: AnimeID,
+    id: PlainId,
 }
 
 #[derive(Deserialize, PartialEq, Eq)]
@@ -182,13 +178,13 @@ struct PagedResponseMediaItems {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AnimeEntry {
-    pub id: AnimeID,
-    pub title: Title,
-    pub cover_image: CoverImage,
-    pub episodes: Option<u32>,
-    pub next_airing_episode: Option<NextAiringEpisode>,
-    pub format: Option<SeriesFormat>,
+struct AnimeEntry {
+    id: PlainId,
+    title: Title,
+    cover_image: CoverImage,
+    episodes: Option<u32>,
+    next_airing_episode: Option<NextAiringEpisode>,
+    format: Option<SeriesFormat>,
 }
 
 impl From<AnimeEntry> for crate::Anime {
@@ -202,9 +198,7 @@ impl From<AnimeEntry> for crate::Anime {
         });
 
         Self {
-            id: MediaID {
-                anilist: Some(value.id),
-            },
+            id: Id::AniList(value.id),
             title: value.title,
             cover_image_url: value.cover_image,
             episodes,
@@ -213,21 +207,14 @@ impl From<AnimeEntry> for crate::Anime {
     }
 }
 
-impl AnimeInfo for AnimeEntry {
-    #[inline]
-    fn id(&self) -> AnimeID {
-        self.id
-    }
-}
-
 #[derive(Debug, Deserialize)]
-pub struct NextAiringEpisode {
-    pub episode: u32,
+struct NextAiringEpisode {
+    episode: u32,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
-pub enum SeriesFormat {
+enum SeriesFormat {
     Tv,
     Movie,
     Special,

@@ -19,7 +19,7 @@ use crate::{
 
 pub struct Main {
     series_list_state: widget::series::list::ViewState,
-    series_cover_images: tui::ImageProtocolCache<anime::MediaID>,
+    series_cover_images: tui::ImageProtocolCache<anime::Id>,
 }
 
 impl Main {

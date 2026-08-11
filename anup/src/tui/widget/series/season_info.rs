@@ -69,7 +69,7 @@ mod paired_season_info {
         let mut info_text = Text::default();
 
         info_text.push_line(build_episodes_line(anime.episodes));
-        info_text.push_line(build_anilist_id_line(anime.id.anilist));
+        info_text.push_line(build_id_line(anime.id));
 
         info_text
     }
@@ -92,17 +92,13 @@ mod paired_season_info {
         line
     }
 
-    fn build_anilist_id_line(anilist_id: Option<anime::AnimeID>) -> Line<'static> {
-        let mut line = Line::from(Span::styled("ID [AniList]: ", Style::default().bold()));
+    fn build_id_line(id: anime::Id) -> Line<'static> {
+        let bold = Style::default().bold();
 
-        match anilist_id {
-            Some(id) => {
-                line.push_span(Span::styled(id.to_string(), Style::default()));
-            }
-            None => {
-                line.push_span(Span::styled("N/A", Style::default().dark_gray().italic()));
-            }
-        }
+        let mut line = Line::from(Span::styled("ID [", bold));
+        line.push_span(Span::styled(id.source_name(), bold));
+        line.push_span(Span::styled("]: ", bold));
+        line.push_span(Span::styled(id.plain().to_string(), Style::default()));
 
         line
     }

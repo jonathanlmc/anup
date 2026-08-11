@@ -19,11 +19,34 @@ use serde::Deserialize;
 
 pub mod api;
 
-pub type AnimeID = u32;
+pub type PlainId = u32;
+
+#[derive(Copy, Clone, Debug, Hash, PartialOrd, Ord, PartialEq, Eq)]
+pub enum Id {
+    AniList(PlainId),
+}
+
+impl Id {
+    #[inline]
+    #[must_use]
+    pub const fn source_name(self) -> &'static str {
+        match self {
+            Self::AniList(_) => "AniList",
+        }
+    }
+
+    #[inline]
+    #[must_use]
+    pub const fn plain(self) -> PlainId {
+        match self {
+            Self::AniList(id) => id,
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct Anime {
-    pub id: MediaID,
+    pub id: Id,
     pub title: Title,
     pub cover_image_url: CoverImage,
     pub episodes: Option<u32>,
@@ -47,11 +70,6 @@ impl Title {
             Some(&self.native),
         ]
     }
-}
-
-#[derive(Copy, Clone, Debug, Hash, PartialOrd, Ord, PartialEq, Eq)]
-pub struct MediaID {
-    pub anilist: Option<AnimeID>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
