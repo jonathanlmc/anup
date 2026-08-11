@@ -45,16 +45,14 @@ pub enum PairState {
 /// * `Title - 07` -> First episode of season 3, or S03E01.
 /// * `Title - 08` -> S03E02
 /// * `Title - 09` -> S03E03
-pub async fn all_formats_and_seasons<S>(
+pub async fn all_formats_and_seasons(
     local_series: series::LocalRoot,
-    anime_service: &S,
-) -> Result<PairState>
-where
-    S: anime::api::Service + Send + Sync,
-{
+    anime_service: &dyn anime::api::Service,
+) -> Result<PairState> {
     let searched_anime = anime_service
-        .search_by_name(&crate::REQWEST_CLIENT, &local_series.parsed_name)
+        .search_by_name(&local_series.parsed_name)
         .await?
+        .into_iter()
         .map(|info| (info.id, info))
         .collect::<IndexMap<_, _>>();
 
@@ -190,15 +188,12 @@ impl ScoredFormats {
     ///
     /// This will resolve any continuous seasons detected in any
     /// of the local series formats as well, and may take a while to complete.
-    async fn pair_formats_to_new_series_root<S>(
+    async fn pair_formats_to_new_series_root(
         self,
         mut local_series: series::LocalRoot,
         mut anime_entries: IndexMap<anime::Id, anime::Info>,
-        anime_service: &S,
-    ) -> Result<series::RootPairing>
-    where
-        S: anime::api::Service + Send + Sync,
-    {
+        anime_service: &dyn anime::api::Service,
+    ) -> Result<series::RootPairing> {
         let mut series = series::RootPairing::new(local_series.parsed_name);
 
         for (format, entry) in self.best_format_matches {
@@ -241,15 +236,12 @@ impl ScoredFormats {
 ///
 /// If any extra episodes are present that do not map to a season, they will
 /// be inserted into season 0 within the map.
-async fn pair_local_episodes_to_remote_seasons<S>(
+async fn pair_local_episodes_to_remote_seasons(
     anime_id: anime::Id,
     anime: anime::Info,
     mut episodes: episode::Set,
-    anime_service: &S,
-) -> Result<series::root::SeasonMap>
-where
-    S: anime::api::Service + Send + Sync,
-{
+    anime_service: &dyn anime::api::Service,
+) -> Result<series::root::SeasonMap> {
     let highest_episode_num = episodes.iter().map(|ep| ep.info.number).max().unwrap_or(0);
 
     // calculate an episode offset if the highest episode number exceeds
@@ -295,14 +287,8 @@ where
 
     // now loop over each sequel to the first series and extract
     // its episode range into a new season
-    while let Some(sequel_id) = anime_service
-        .sequel_id(&crate::REQWEST_CLIENT, current_sequel.plain())
-        .await?
-    {
-        let Some(sequel) = anime_service
-            .get_by_id(&crate::REQWEST_CLIENT, sequel_id.plain())
-            .await?
-        else {
+    while let Some(sequel_id) = anime_service.sequel_id(current_sequel.plain()).await? {
+        let Some(sequel) = anime_service.get_by_id(sequel_id.plain()).await? else {
             tracing::warn!(
                 root_anime_id = ?anime_id,
                 ?sequel_id,

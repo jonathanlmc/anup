@@ -9,6 +9,7 @@ anyhow = "1.0.103"
 walkdir = "2.5"
 
 [dependencies]
+async-trait = "0.1.92"
 reqwest = { version = "0.13", default-features = false, features = ["json"] }
 serde = { version = "1.0", features = ["serde_derive"] }
 serde_json = "1.0"

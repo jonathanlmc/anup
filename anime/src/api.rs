@@ -2,6 +2,7 @@
 
 pub mod anilist;
 
+use async_trait::async_trait;
 use serde::Deserialize;
 
 pub use anilist::AniList;
@@ -57,26 +58,15 @@ pub struct RequestError {
 }
 
 /// High-level API calls for all supported anime tracking services.
-pub trait Service {
+#[async_trait]
+pub trait Service: Send + Sync {
     /// Get an anime by its ID. [`None`] will be returned
     /// if the anime ID does not exist on the service.
-    fn get_by_id(
-        &self,
-        client: &reqwest::Client,
-        id: PlainId,
-    ) -> impl Future<Output = Result<Option<Info>>> + Send;
+    async fn get_by_id(&self, id: PlainId) -> Result<Option<Info>>;
 
     /// Search for an anime by a partial name. An iterator with all matching entries
     /// will be returned on success.
-    fn search_by_name(
-        &self,
-        client: &reqwest::Client,
-        partial_name: &str,
-    ) -> impl Future<Output = Result<impl Iterator<Item = Info>>> + Send;
+    async fn search_by_name(&self, partial_name: &str) -> Result<Vec<Info>>;
 
-    fn sequel_id(
-        &self,
-        client: &reqwest::Client,
-        id: PlainId,
-    ) -> impl Future<Output = Result<Option<Id>>> + Send;
+    async fn sequel_id(&self, id: PlainId) -> Result<Option<Id>>;
 }

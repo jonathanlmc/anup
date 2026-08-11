@@ -5,6 +5,7 @@ pub mod rate_limit;
 
 pub mod request;
 
+use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::json;
 use tap::{Pipe, Tap};
@@ -16,14 +17,25 @@ use crate::{
 };
 
 /// `AniList` API integration.
-pub struct AniList;
+pub struct AniList {
+    pub client: reqwest::Client,
+}
 
+impl AniList {
+    #[inline]
+    #[must_use]
+    pub const fn new(client: reqwest::Client) -> Self {
+        Self { client }
+    }
+}
+
+#[async_trait]
 impl Service for AniList {
-    async fn get_by_id(&self, client: &reqwest::Client, id: PlainId) -> Result<Option<Info>> {
+    async fn get_by_id(&self, id: PlainId) -> Result<Option<Info>> {
         tracing::debug!(series_id = %id, "sending `get_by_id` request");
 
         request::send::<MediaItem<AnimeEntry>>(
-            client,
+            &self.client,
             include_graphql!("anilist/get_by_id.gql"),
             &json!({ "id": id }),
         )
@@ -54,20 +66,16 @@ impl Service for AniList {
         })
     }
 
-    async fn search_by_name(
-        &self,
-        client: &reqwest::Client,
-        partial_name: &str,
-    ) -> Result<impl Iterator<Item = Info>> {
+    async fn search_by_name(&self, partial_name: &str) -> Result<Vec<Info>> {
         tracing::debug!(%partial_name, "sending `search_by_name` request");
 
         request::send::<PagedResponse<PagedResponseMediaItems>>(
-            client,
+            &self.client,
             include_graphql!("anilist/search_by_name.gql"),
             &json!({ "search": partial_name }),
         )
         .await
-        .map(|r| r.page.media.into_iter().map(Into::into))
+        .map(|r| -> Vec<_> { r.page.media.into_iter().map(Into::into).collect() })
         .tap(|r| {
             if !tracing::enabled!(target: "request", tracing::Level::DEBUG) {
                 return;
@@ -90,11 +98,11 @@ impl Service for AniList {
         })
     }
 
-    async fn sequel_id(&self, client: &reqwest::Client, id: PlainId) -> Result<Option<Id>> {
+    async fn sequel_id(&self, id: PlainId) -> Result<Option<Id>> {
         tracing::debug!(%id, "sending `sequel_id` request");
 
         request::send::<MediaItem<MediaRelations>>(
-            client,
+            &self.client,
             include_graphql!("anilist/relations.gql"),
             &json!({ "id": id }),
         )

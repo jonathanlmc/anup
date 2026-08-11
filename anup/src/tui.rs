@@ -63,6 +63,7 @@ impl App {
         tokio::spawn(state::series_list::resolve_dir::resolve_all(
             app_events.new_sender(),
             state.series_scan_dir.clone(),
+            state.anime_service.clone(),
         ));
 
         Ok(Self {

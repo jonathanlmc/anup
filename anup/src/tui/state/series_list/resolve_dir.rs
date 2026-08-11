@@ -13,7 +13,13 @@ use crate::{
     },
 };
 
-pub async fn resolve_all(event_chan: event::EventSender, dir: PathBuf) -> anyhow::Result<()> {
+pub async fn resolve_all(
+    event_chan: event::EventSender,
+    dir: PathBuf,
+    anime_service: Arc<dyn anime::api::Service + Send + Sync>,
+) -> anyhow::Result<()>
+where
+{
     const MAX_BUFFERED_DETECTIONS: usize = 10;
     const MAX_CONCURRENT_RESOLVES: usize = 3;
 
@@ -71,6 +77,7 @@ pub async fn resolve_all(event_chan: event::EventSender, dir: PathBuf) -> anyhow
 
         let resolve_sema_clone = resolve_semaphore.clone();
         let event_chan = event_chan.clone();
+        let anime_service = anime_service.clone();
 
         // resolve the folder to a series
         task_set.spawn(async move {
@@ -87,6 +94,7 @@ pub async fn resolve_all(event_chan: event::EventSender, dir: PathBuf) -> anyhow
                 entry_path.clone(),
                 filename,
                 inserted_series_index,
+                &*anime_service,
             )
             .await;
 
@@ -112,6 +120,7 @@ async fn resolve_new_series(
     path: PathBuf,
     filename: String,
     inserted_series_index: usize,
+    anime_service: &dyn anime::api::Service,
 ) -> anyhow::Result<()> {
     event_chan
         .send(
@@ -141,9 +150,8 @@ async fn resolve_new_series(
 
     let local_name = local_series.parsed_name.clone();
 
-    // todo: make api configurable
     let series_result =
-        series::automatch::all_formats_and_seasons(local_series, &anime::api::AniList).await;
+        series::automatch::all_formats_and_seasons(local_series, anime_service).await;
 
     let Some(series) = process_automatch_result(
         series_result,

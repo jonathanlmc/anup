@@ -80,10 +80,14 @@ async fn main() -> anyhow::Result<()> {
         tokio::fs::create_dir_all(dir).await?;
     }
 
+    // todo: make configurable
+    let anime_service = anime::api::AniList::new(REQWEST_CLIENT.clone());
+
     tui::App::init(
         tui::State {
             series_scan_dir: path.into(),
             series_list: state::SeriesList::new(),
+            anime_service: Arc::new(anime_service),
             log_message_buffer: VecDeque::with_capacity(tui::MAX_LOG_MESSAGES),
             image_cache: Arc::new(ImageCache::new(
                 cache_dir,
