@@ -16,7 +16,7 @@ use crate::{
 pub async fn resolve_all(
     event_chan: event::EventSender,
     dir: PathBuf,
-    anime_service: Arc<dyn anime::api::Service + Send + Sync>,
+    anime_service: Arc<dyn anime::api::Service>,
 ) -> anyhow::Result<()>
 where
 {
