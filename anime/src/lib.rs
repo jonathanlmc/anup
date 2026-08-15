@@ -76,6 +76,21 @@ pub enum UserStatus {
     Repeating,
 }
 
+impl UserStatus {
+    #[inline]
+    #[must_use]
+    pub const fn display_str(self) -> &'static str {
+        match self {
+            Self::Current => "Watching",
+            Self::Planning => "Planning",
+            Self::Completed => "Completed",
+            Self::Dropped => "Dropped",
+            Self::Paused => "Paused",
+            Self::Repeating => "Rewatching",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct Title {
     pub english: Option<String>,

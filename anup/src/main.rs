@@ -40,6 +40,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use crate::{image_cache::ImageCache, tui::state};
 
 static REQWEST_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
+static SYSTEM_TZ: LazyLock<jiff::tz::TimeZone> = LazyLock::new(jiff::tz::TimeZone::system);
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {

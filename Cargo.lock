@@ -87,6 +87,7 @@ dependencies = [
  "image",
  "indexmap 2.14.0",
  "infer",
+ "jiff",
  "lru",
  "medinpar",
  "parking_lot",

@@ -15,6 +15,7 @@ futures = "0.3.33"
 image = { version = "0.25.10", default-features = false, features = ["rayon", "jpeg"] }
 indexmap = "2.14.0"
 infer = "0.22.0"
+jiff = "0.2.35"
 lru = "0.18.2"
 medinpar = { git = "https://github.com/jonathanlmc/medinpar.git", rev = "cfd4fc97cc4ef54f4d1aa44c9e304fdc394dbd36" }
 parking_lot = "0.12.5"
