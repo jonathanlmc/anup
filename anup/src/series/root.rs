@@ -47,7 +47,7 @@ pub struct FormatSeasonRef<'a> {
 
 #[derive(Debug)]
 pub enum RemoteSeasonPairing {
-    Paired(PairedSeason),
+    Paired(Box<PairedSeason>),
     Unpaired(
         // todo: display in interface
         #[allow(unused)] episode::Set,

@@ -5,39 +5,44 @@ pub mod rate_limit;
 
 pub mod request;
 
+use std::borrow::Cow;
+
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::json;
+use serde_with::{TimestampSeconds, serde_as};
 use tap::{Pipe, Tap};
 
 use crate::{
-    CoverImage, Id, Info, PlainId, Title,
-    api::{Result, Service},
+    CoverImage, Id, Info, PlainId, Title, UserListEntry, UserStatus,
+    api::{AuthToken, Result, Service},
     macros::include_graphql,
 };
 
 /// `AniList` API integration.
 pub struct AniList {
     pub client: reqwest::Client,
+    pub client_id: u32,
 }
 
 impl AniList {
     #[inline]
     #[must_use]
-    pub const fn new(client: reqwest::Client) -> Self {
-        Self { client }
+    pub const fn new(client: reqwest::Client, client_id: u32) -> Self {
+        Self { client, client_id }
     }
 }
 
 #[async_trait]
 impl Service for AniList {
-    async fn get_by_id(&self, id: PlainId) -> Result<Option<Info>> {
+    async fn get_by_id(&self, id: PlainId, auth: Option<&AuthToken>) -> Result<Option<Info>> {
         tracing::debug!(series_id = %id, "sending `get_by_id` request");
 
         request::send::<MediaItem<AnimeEntry>>(
             &self.client,
             include_graphql!("anilist/get_by_id.gql"),
             &json!({ "id": id }),
+            auth,
         )
         .await
         .pipe(|res| match res {
@@ -66,13 +71,18 @@ impl Service for AniList {
         })
     }
 
-    async fn search_by_name(&self, partial_name: &str) -> Result<Vec<Info>> {
+    async fn search_by_name(
+        &self,
+        partial_name: &str,
+        auth: Option<&AuthToken>,
+    ) -> Result<Vec<Info>> {
         tracing::debug!(%partial_name, "sending `search_by_name` request");
 
         request::send::<PagedResponse<PagedResponseMediaItems>>(
             &self.client,
             include_graphql!("anilist/search_by_name.gql"),
             &json!({ "search": partial_name }),
+            auth,
         )
         .await
         .map(|r| -> Vec<_> { r.page.media.into_iter().map(Into::into).collect() })
@@ -105,6 +115,7 @@ impl Service for AniList {
             &self.client,
             include_graphql!("anilist/relations.gql"),
             &json!({ "id": id }),
+            None,
         )
         .await
         .map(|r| {
@@ -134,6 +145,17 @@ impl Service for AniList {
                 ),
             }
         })
+    }
+
+    #[inline]
+    fn implicit_grant_oauth_url_str(&self) -> Option<Cow<'static, str>> {
+        Some(
+            format!(
+                "https://anilist.co/api/v2/oauth/authorize?client_id={}&response_type=token",
+                self.client_id,
+            )
+            .into(),
+        )
     }
 }
 
@@ -187,12 +209,13 @@ struct PagedResponseMediaItems {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AnimeEntry {
-    id: PlainId,
-    title: Title,
     cover_image: CoverImage,
     episodes: Option<u32>,
-    next_airing_episode: Option<NextAiringEpisode>,
     format: Option<SeriesFormat>,
+    id: PlainId,
+    media_list_entry: Option<MediaListEntry>,
+    next_airing_episode: Option<NextAiringEpisode>,
+    title: Title,
 }
 
 impl From<AnimeEntry> for crate::Info {
@@ -211,6 +234,75 @@ impl From<AnimeEntry> for crate::Info {
             cover_image_url: value.cover_image,
             episodes,
             format: value.format.map(Into::into),
+            user_list_entry: value.media_list_entry.map(Into::into),
+        }
+    }
+}
+
+#[serde_as]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MediaListEntry {
+    completed_at: Option<FuzzyDate>,
+    #[serde_as(as = "Option<TimestampSeconds>")]
+    created_at: Option<jiff::Timestamp>,
+    progress: Option<u32>,
+    repeat: Option<u32>,
+    score: Option<f32>,
+    started_at: Option<FuzzyDate>,
+    status: Option<MediaListStatus>,
+    #[serde_as(as = "Option<TimestampSeconds>")]
+    updated_at: Option<jiff::Timestamp>,
+}
+
+impl From<MediaListEntry> for UserListEntry {
+    fn from(value: MediaListEntry) -> Self {
+        Self {
+            completed_at: value.completed_at.and_then(FuzzyDate::into_date),
+            created_at: value.created_at,
+            progress: value.progress,
+            repeat: value.repeat,
+            score: value.score,
+            started_at: value.started_at.and_then(FuzzyDate::into_date),
+            status: value.status.map(Into::into),
+            updated_at: value.updated_at,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct FuzzyDate {
+    day: Option<i8>,
+    month: Option<i8>,
+    year: Option<i16>,
+}
+
+impl FuzzyDate {
+    fn into_date(self) -> Option<jiff::civil::Date> {
+        jiff::civil::Date::new(self.year?, self.month?, self.day?).ok()
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+enum MediaListStatus {
+    Current,
+    Planning,
+    Completed,
+    Dropped,
+    Paused,
+    Repeating,
+}
+
+impl From<MediaListStatus> for UserStatus {
+    fn from(value: MediaListStatus) -> Self {
+        match value {
+            MediaListStatus::Current => Self::Current,
+            MediaListStatus::Planning => Self::Planning,
+            MediaListStatus::Completed => Self::Completed,
+            MediaListStatus::Dropped => Self::Dropped,
+            MediaListStatus::Paused => Self::Paused,
+            MediaListStatus::Repeating => Self::Repeating,
         }
     }
 }

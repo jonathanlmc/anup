@@ -48,9 +48,10 @@ pub enum PairState {
 pub async fn all_formats_and_seasons(
     local_series: series::LocalRoot,
     anime_service: &dyn anime::api::Service,
+    anime_service_auth: Option<&anime::api::AuthToken>,
 ) -> Result<PairState> {
     let searched_anime = anime_service
-        .search_by_name(&local_series.parsed_name)
+        .search_by_name(&local_series.parsed_name, anime_service_auth)
         .await?
         .into_iter()
         .map(|info| (info.id, info))
@@ -63,7 +64,12 @@ pub async fn all_formats_and_seasons(
     }
 
     let series_root = scored_formats
-        .pair_formats_to_new_series_root(local_series, searched_anime, anime_service)
+        .pair_formats_to_new_series_root(
+            local_series,
+            searched_anime,
+            anime_service,
+            anime_service_auth,
+        )
         .await?;
 
     Ok(PairState::Paired(series_root))
@@ -193,6 +199,7 @@ impl ScoredFormats {
         mut local_series: series::LocalRoot,
         mut anime_entries: IndexMap<anime::Id, anime::Info>,
         anime_service: &dyn anime::api::Service,
+        anime_service_auth: Option<&anime::api::AuthToken>,
     ) -> Result<series::RootPairing> {
         let mut series = series::RootPairing::new(local_series.parsed_name);
 
@@ -216,9 +223,14 @@ impl ScoredFormats {
                 .remove(&format)
                 .ok_or(Error::InvalidFormatScoreStored)?;
 
-            let resolved_seasons =
-                pair_local_episodes_to_remote_seasons(anime_id, anime, episodes, anime_service)
-                    .await?;
+            let resolved_seasons = pair_local_episodes_to_remote_seasons(
+                anime_id,
+                anime,
+                episodes,
+                anime_service,
+                anime_service_auth,
+            )
+            .await?;
 
             series.pairings.insert(format, resolved_seasons);
         }
@@ -241,6 +253,7 @@ async fn pair_local_episodes_to_remote_seasons(
     anime: anime::Info,
     mut episodes: episode::Set,
     anime_service: &dyn anime::api::Service,
+    anime_service_auth: Option<&anime::api::AuthToken>,
 ) -> Result<series::root::SeasonMap> {
     let highest_episode_num = episodes.iter().map(|ep| ep.info.number).max().unwrap_or(0);
 
@@ -260,11 +273,11 @@ async fn pair_local_episodes_to_remote_seasons(
     let Some(mut episode_offset) = episode_offset else {
         season_map.insert(
             season_num,
-            series::RemoteSeasonPairing::Paired(series::PairedSeason {
+            series::RemoteSeasonPairing::Paired(Box::new(series::PairedSeason {
                 remote_info: anime,
                 local_episodes: episodes,
                 in_sync: false,
-            }),
+            })),
         );
 
         return Ok(season_map);
@@ -274,13 +287,13 @@ async fn pair_local_episodes_to_remote_seasons(
     // for the first resolved season
     season_map.insert(
         season_num,
-        series::RemoteSeasonPairing::Paired(series::PairedSeason {
+        series::RemoteSeasonPairing::Paired(Box::new(series::PairedSeason {
             remote_info: anime,
             local_episodes: episodes
                 .extract_if(|ep| ep.info.number <= episode_offset)
                 .collect(),
             in_sync: false,
-        }),
+        })),
     );
 
     let mut current_sequel = anime_id;
@@ -288,7 +301,10 @@ async fn pair_local_episodes_to_remote_seasons(
     // now loop over each sequel to the first series and extract
     // its episode range into a new season
     while let Some(sequel_id) = anime_service.sequel_id(current_sequel.plain()).await? {
-        let Some(sequel) = anime_service.get_by_id(sequel_id.plain()).await? else {
+        let Some(sequel) = anime_service
+            .get_by_id(sequel_id.plain(), anime_service_auth)
+            .await?
+        else {
             tracing::warn!(
                 root_anime_id = ?anime_id,
                 ?sequel_id,
@@ -338,11 +354,11 @@ async fn pair_local_episodes_to_remote_seasons(
 
         season_map.insert(
             season_num,
-            series::RemoteSeasonPairing::Paired(series::PairedSeason {
+            series::RemoteSeasonPairing::Paired(Box::new(series::PairedSeason {
                 remote_info: sequel,
                 local_episodes: sequel_episodes,
                 in_sync: false,
-            }),
+            })),
         );
 
         episode_offset += num_sequel_eps.unwrap_or(0);

@@ -322,10 +322,8 @@ mod resolved_series_entry {
             let (synced, unsynced, unpaired) = seasons.values().fold(
                 (0u32, 0u32, 0u32),
                 |(synced, unsynced, unpaired), pairing| match pairing {
-                    series::RemoteSeasonPairing::Paired(series::PairedSeason {
-                        in_sync, ..
-                    }) => {
-                        if *in_sync {
+                    series::RemoteSeasonPairing::Paired(paired) => {
+                        if paired.in_sync {
                             (synced + 1, unsynced, unpaired)
                         } else {
                             (synced, unsynced + 1, unpaired)

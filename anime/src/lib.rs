@@ -51,6 +51,29 @@ pub struct Info {
     pub cover_image_url: CoverImage,
     pub episodes: Option<u32>,
     pub format: Option<Format>,
+    pub user_list_entry: Option<UserListEntry>,
+}
+
+#[derive(Clone, Debug)]
+pub struct UserListEntry {
+    pub completed_at: Option<jiff::civil::Date>,
+    pub created_at: Option<jiff::Timestamp>,
+    pub progress: Option<u32>,
+    pub repeat: Option<u32>,
+    pub score: Option<f32>,
+    pub started_at: Option<jiff::civil::Date>,
+    pub status: Option<UserStatus>,
+    pub updated_at: Option<jiff::Timestamp>,
+}
+
+#[derive(Debug, Copy, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]
+pub enum UserStatus {
+    Current,
+    Planning,
+    Completed,
+    Dropped,
+    Paused,
+    Repeating,
 }
 
 #[derive(Clone, Debug, Deserialize)]

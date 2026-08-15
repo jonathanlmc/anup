@@ -10,10 +10,11 @@ walkdir = "2.5"
 
 [dependencies]
 async-trait = "0.1.92"
+jiff = "0.2"
 reqwest = { version = "0.13", default-features = false, features = ["json"] }
 serde = { version = "1.0", features = ["serde_derive"] }
 serde_json = "1.0"
-serde_with = "3.22"
+serde_with = { version = "3.22", features = ["jiff_0_2"] }
 tap = "1.0"
 thiserror = "2.0"
 tokio = { version = "1.53", optional = true, features = ["sync"] }

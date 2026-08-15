@@ -10,6 +10,7 @@ pub struct State {
     pub series_scan_dir: PathBuf,
     pub series_list: SeriesList,
     pub anime_service: Arc<dyn anime::api::Service>,
+    pub anime_service_user_auth: Arc<Option<anime::api::AuthToken>>,
     pub log_message_buffer: VecDeque<String>,
     pub image_cache: Arc<ImageCache>,
 }

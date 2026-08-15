@@ -67,7 +67,13 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_target)
         .init();
 
-    let path = std::env::args().nth(1).context("missing path arg")?;
+    let (path, user_auth_token) = {
+        let mut args = std::env::args().skip(1);
+        let path = args.next().context("missing path arg")?;
+        let user_auth_token = args.next();
+
+        (path, user_auth_token)
+    };
 
     let cache_dir = dirs::cache_dir().tap_some_mut(|dir| {
         dir.push(env!("CARGO_PKG_NAME"));
@@ -81,13 +87,18 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // todo: make configurable
-    let anime_service = anime::api::AniList::new(REQWEST_CLIENT.clone());
+    let anime_service = anime::api::AniList::new(
+        REQWEST_CLIENT.clone(),
+        // todo: make configurable
+        427,
+    );
 
     tui::App::init(
         tui::State {
             series_scan_dir: path.into(),
             series_list: state::SeriesList::new(),
             anime_service: Arc::new(anime_service),
+            anime_service_user_auth: Arc::new(user_auth_token.map(anime::api::AuthToken::new)),
             log_message_buffer: VecDeque::with_capacity(tui::MAX_LOG_MESSAGES),
             image_cache: Arc::new(ImageCache::new(
                 cache_dir,

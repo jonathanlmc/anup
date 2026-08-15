@@ -64,6 +64,7 @@ impl App {
             app_events.new_sender(),
             state.series_scan_dir.clone(),
             state.anime_service.clone(),
+            state.anime_service_user_auth.clone(),
         ));
 
         Ok(Self {

@@ -1,19 +1,37 @@
 query ($search: String) {
     Page(perPage: 100) {
         media(search: $search, type: ANIME) {
-            id
-            title {
-                romaji
-                english
-                native
+            coverImage {
+                extraLarge
             }
             episodes
+            format
+            id
+            mediaListEntry {
+                completedAt {
+                    day
+                    month
+                    year
+                }
+                createdAt
+                progress
+                repeat
+                score
+                startedAt {
+                    day
+                    month
+                    year
+                }
+                status
+                updatedAt
+            }
             nextAiringEpisode {
                 episode
             }
-            format
-            coverImage {
-                extraLarge
+            title {
+                english
+                native
+                romaji
             }
         }
     }

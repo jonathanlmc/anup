@@ -17,6 +17,7 @@ pub async fn resolve_all(
     event_chan: event::EventSender,
     dir: PathBuf,
     anime_service: Arc<dyn anime::api::Service>,
+    anime_service_auth: Arc<Option<anime::api::AuthToken>>,
 ) -> anyhow::Result<()>
 where
 {
@@ -78,6 +79,7 @@ where
         let resolve_sema_clone = resolve_semaphore.clone();
         let event_chan = event_chan.clone();
         let anime_service = anime_service.clone();
+        let anime_service_auth = anime_service_auth.clone();
 
         // resolve the folder to a series
         task_set.spawn(async move {
@@ -95,6 +97,7 @@ where
                 filename,
                 inserted_series_index,
                 &*anime_service,
+                (*anime_service_auth).as_ref(),
             )
             .await;
 
@@ -121,6 +124,7 @@ async fn resolve_new_series(
     filename: String,
     inserted_series_index: usize,
     anime_service: &dyn anime::api::Service,
+    anime_service_auth: Option<&anime::api::AuthToken>,
 ) -> anyhow::Result<()> {
     event_chan
         .send(
@@ -151,7 +155,8 @@ async fn resolve_new_series(
     let local_name = local_series.parsed_name.clone();
 
     let series_result =
-        series::automatch::all_formats_and_seasons(local_series, anime_service).await;
+        series::automatch::all_formats_and_seasons(local_series, anime_service, anime_service_auth)
+            .await;
 
     let Some(series) = process_automatch_result(
         series_result,

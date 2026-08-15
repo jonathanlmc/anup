@@ -2,6 +2,8 @@
 
 pub mod anilist;
 
+use std::borrow::Cow;
+
 use async_trait::async_trait;
 use serde::Deserialize;
 
@@ -62,11 +64,27 @@ pub struct RequestError {
 pub trait Service: Send + Sync {
     /// Get an anime by its ID. [`None`] will be returned
     /// if the anime ID does not exist on the service.
-    async fn get_by_id(&self, id: PlainId) -> Result<Option<Info>>;
+    async fn get_by_id(&self, id: PlainId, auth: Option<&AuthToken>) -> Result<Option<Info>>;
 
     /// Search for an anime by a partial name. An iterator with all matching entries
     /// will be returned on success.
-    async fn search_by_name(&self, partial_name: &str) -> Result<Vec<Info>>;
+    async fn search_by_name(
+        &self,
+        partial_name: &str,
+        auth: Option<&AuthToken>,
+    ) -> Result<Vec<Info>>;
 
     async fn sequel_id(&self, id: PlainId) -> Result<Option<Id>>;
+
+    fn implicit_grant_oauth_url_str(&self) -> Option<Cow<'static, str>>;
+}
+
+pub struct AuthToken(String);
+
+impl AuthToken {
+    #[inline]
+    #[must_use]
+    pub const fn new(token: String) -> Self {
+        Self(token)
+    }
 }

@@ -3,7 +3,7 @@
 use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::json;
 
-use crate::api::{Error, RequestError, Result};
+use crate::api::{AuthToken, Error, RequestError, Result};
 
 #[cfg(feature = "rate_limit")]
 use super::rate_limit;
@@ -26,9 +26,10 @@ pub async fn send<T: DeserializeOwned>(
     client: &reqwest::Client,
     query: &str,
     variables: &serde_json::Value,
+    auth: Option<&AuthToken>,
 ) -> Result<T> {
     // minimize the amount of monomorphisation
-    let resp = send_request_impl(client, query, variables).await?;
+    let resp = send_request_impl(client, query, variables, auth).await?;
     serde_json::from_value(resp).map_err(Error::InvalidResponseData)
 }
 
@@ -36,6 +37,7 @@ async fn send_request_impl(
     client: &reqwest::Client,
     query: &str,
     variables: &serde_json::Value,
+    auth: Option<&AuthToken>,
 ) -> Result<serde_json::Value> {
     #[derive(Debug, Deserialize)]
     struct Response {
@@ -52,15 +54,19 @@ async fn send_request_impl(
         "variables": variables
     });
 
-    tracing::trace!(%query, %variables, "sending request to anilist");
+    tracing::trace!(%query, %variables, has_auth = %auth.is_some(), "sending request to anilist");
 
-    let resp = client
+    let mut req = client
         .post(BASE_URL)
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .header(reqwest::header::ACCEPT, "application/json")
-        .json(&body)
-        .send()
-        .await?;
+        .json(&body);
+
+    if let Some(auth) = auth {
+        req = req.bearer_auth(&auth.0);
+    }
+
+    let resp = req.send().await?;
 
     let status = resp.status();
     let mut resp_json: Response = resp.json().await?;
